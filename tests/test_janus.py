@@ -15,14 +15,13 @@ import sys
 import tempfile
 import time
 import pytest
-import httpx
 from starlette.testclient import TestClient
 
 # Ensure src directory is in path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-from janus import storage
-from janus.server import (
+from janus import storage  # noqa: E402
+from janus.server import (  # noqa: E402
     get_app,
     log_daily_routine,
     get_caregiver_summary,
@@ -48,27 +47,38 @@ def isolated_db(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_log_daily_routine_unit(isolated_db):
-    """Test Tool 1: log_daily_routine inserts routine events."""
+    """Test Tool 1: log_daily_routine creates a pending proposal with 0 writes until confirmed."""
+    # Step 1: Proposal creation
     res = await log_daily_routine(
         senior_id="margaret_01",
-        routine_type="hydration",
-        logged_by="senior_voice",
-        notes="400ml water",
+        category="hydration",
+        details="400ml water",
     )
 
-    assert res["status"] == "success"
+    assert res["status"] == "pending_confirmation"
     assert res["senior_id"] == "margaret_01"
     assert res["routine_type"] == "hydration"
-    assert "echo_show_card" in res
-    assert res["echo_show_card"]["title"] == "Logged: Hydration"
+    assert res["database_writes"] == 0
+    assert "transaction_id" in res
+    assert "preview" in res
+    assert "spoken_prompt" in res
+
+    # Confirm via verify_routine_state
+    commit_res = await verify_routine_state(confirm=True, transaction_id=res["transaction_id"])
+    assert commit_res["status"] == "COMMITTED"
+    assert commit_res["database_writes"] == 1
+    assert commit_res["committed_record"]["routine_type"] == "hydration"
 
 
 @pytest.mark.asyncio
 async def test_get_caregiver_summary_unit(isolated_db):
     """Test Tool 2: get_caregiver_summary returns completed and pending routines."""
-    # Seed events
-    await log_daily_routine("margaret_01", "meal", "senior_voice", "Morning oatmeal")
-    await log_daily_routine("margaret_01", "vitamins", "caregiver_sarah", "Morning vitamins")
+    # Seed events via two-step confirmation gate
+    p1 = await log_daily_routine(senior_id="margaret_01", category="meal", details="Morning oatmeal")
+    await verify_routine_state(confirm=True, transaction_id=p1["transaction_id"])
+
+    p2 = await log_daily_routine(senior_id="margaret_01", category="vitamins", details="Morning vitamins")
+    await verify_routine_state(confirm=True, transaction_id=p2["transaction_id"])
 
     summary = await get_caregiver_summary("margaret_01")
     assert summary["status"] == "success"
@@ -94,27 +104,27 @@ async def test_verify_routine_state_confirmation_gate(isolated_db):
 
     # Step 1: Proposal Preview (confirm=False)
     preview = await verify_routine_state(
+        confirm=False,
         senior_id="margaret_01",
         action_type="shift_handoff",
         payload=payload,
-        confirm=False,
     )
 
     assert preview["status"] == "PROPOSAL_PREVIEW"
     assert preview["confirm_required"] is True
     assert preview["database_writes"] == 0
+    assert "transaction_id" in preview
     assert "spoken_prompt" in preview
+    tx_id = preview["transaction_id"]
 
     # Verify that database has zero shift handoffs committed
     latest_handoff = storage.get_latest_handoff("margaret_01", db_path=isolated_db)
     assert latest_handoff is None
 
-    # Step 2: Confirmed Commit (confirm=True)
+    # Step 2: Confirmed Commit (confirm=True with transaction_id)
     committed = await verify_routine_state(
-        senior_id="margaret_01",
-        action_type="shift_handoff",
-        payload=payload,
         confirm=True,
+        transaction_id=tx_id,
     )
 
     assert committed["status"] == "COMMITTED"
@@ -143,8 +153,9 @@ async def test_flag_missed_routine_unit(isolated_db):
     assert res_missed["is_missed"] is True
     assert "alert_payload" in res_missed
 
-    # Log the hydration
-    await log_daily_routine("margaret_01", "hydration", "senior_voice", "2 glasses water")
+    # Log and confirm the hydration
+    p = await log_daily_routine(senior_id="margaret_01", category="hydration", details="2 glasses water")
+    await verify_routine_state(confirm=True, transaction_id=p["transaction_id"])
 
     # When routine HAS been logged
     res_done = await flag_missed_routine(
@@ -207,6 +218,7 @@ def test_verify_routine_state_preview_over_http(isolated_db):
         assert data["status"] == "PROPOSAL_PREVIEW"
         assert data["database_writes"] == 0
         assert data["confirm_required"] is True
+        assert "transaction_id" in data
 
         # Assert no writes occurred in the database
         assert storage.get_latest_handoff("margaret_01", db_path=isolated_db) is None

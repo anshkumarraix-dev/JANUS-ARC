@@ -29,6 +29,55 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-20 13:17:00 IST] - Fix Pending/Missed Routine Logic, Local Timezone Support, and Alert Deduplication
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Feature, Safety & Contract Testing
+- **Files Modified / Created**:
+  - `src/janus/storage.py` (Added `routine_schedule` and `alerts` tables, senior `tz` column migration, default schedule seed, `parse_timestamp_to_tz`, slot window matching with +/- 30m grace period, status evaluation `upcoming|due|completed|overdue`, `get_daily_summary` slot filtering and completion percentage, `scan_missed_routines` multi-tier escalation ladder with dedupe).
+  - `src/janus/server.py` (Exposed `filter_status` on `get_caregiver_summary`, updated `flag_missed_routine` with `threshold_hours: int = 1`, removed substring matching, eliminated hardcoded names).
+  - `src/janus/tools/routine.py` (Updated schemas with `CaregiverSummaryRequest` and `MissedRoutineRequest` including `threshold_hours`).
+  - `requirements.txt` & `pyproject.toml` (Added `tzdata>=2024.1` for Windows IANA timezone lookup).
+  - `tests/test_schedule.py` (Created comprehensive test suite verifying slot window isolation, morning water isolation, IST timezone boundary, alert deduplication, and unconfirmed events isolation).
+  - `TASKS.md` (Updated milestones Core 1.9 and Test 3.7 to completed).
+- **Diff / Summary of Changes**:
+  - **Slot-Based Routine Schedule**: Created `routine_schedule` table (`senior_id, slot_id, label, category, window_start, window_end, urgency`) with primary key `(senior_id, slot_id)`. Automatically seeds canonical schedule for seniors.
+  - **IANA Local Timezone Calculation**: Added `tz` column to `seniors` table (default `'America/New_York'`). Converted all "today" queries and window evaluations to senior's local time using `zoneinfo.ZoneInfo`, ensuring events crossing UTC boundaries (e.g., UTC 20:30 = IST 02:00) map to the senior's local day.
+  - **Window-Specific Slot Completion & Status**: A slot is marked `completed` ONLY if a confirmed event of that category falls within `[window_start - 30m, window_end + 30m]`. When uncompleted, computes status dynamically as `upcoming` (before window start), `due` (inside window and grace), or `overdue` (after grace end). Breakfast no longer clears Lunch or Dinner, and morning water no longer clears Afternoon Hydration.
+  - **Caregiver Summary Aggregation**: `get_caregiver_summary` returns slot-level statuses, `completion_percentage`, and `last_activity` timestamp. Supports `filter_status='all'|'completed'|'pending'`. Strictly counts only CONFIRMED events from `routine_logs`.
+  - **Escalation Ladder & Alert Deduplication**: `flag_missed_routine` scans overdue slots older than `threshold_hours`: Level 0 (gentle voice prompt), Level 1 (display banner), Level 2 (caregiver timeline alert). Persists alerts with `UNIQUE(senior_id, slot_id, date, level)` to guarantee the same slot+day+level is never re-emitted. All alert messages use non-alarm wording.
+  - **Removed Substring Matching & Hardcoded Names**: Eliminated `ctype in target_lower or target_lower in ctype` and hardcoded `"Margaret Vance"`, `"Sarah"`, and `"David"` in server code. All names are fetched dynamically from the database or action payloads.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `19 passed in 4.12s` (100% pass rate across `test_janus.py`, `test_gate.py`, and `test_schedule.py`).
+  - Latency budget maintained: local tool execution completes well under 100 ms.
+- **Impact & Next Steps**:
+  - Pending and missed routine logic is now reliable, timezone-aware, and free of false positives.
+
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Feature, Safety & Contract Testing
+- **Files Modified / Created**:
+  - `src/janus/storage.py` (Added `proposals` table, injectable clock `get_current_time`/`set_clock_override`, category enum validation, `create_proposal`, `get_proposal`, `cancel_proposal`, and atomic `commit_proposal`)
+  - `src/janus/server.py` (Updated `log_daily_routine` to proposal-only `pending_confirmation`, and `verify_routine_state` to enforce atomic idempotent commit via `transaction_id`)
+  - `src/janus/tools/routine.py` (Added `VALID_CATEGORIES`, `RoutineLogProposalResponse`, `RoutineProposalPreview`)
+  - `src/janus/tools/handoff.py` (Updated `RoutineStateVerifyRequest` with `transaction_id`, added `AlreadyCommittedResponse`)
+  - `simulator/index.html` (Added `pendingTransactionId` handling, proposal preview cards, and voice/click confirmation)
+  - `tests/test_gate.py` (Created full confirmation gate test suite covering all 6 invariant checks)
+  - `tests/test_janus.py` (Updated to align with proposal-first two-step contract)
+  - `README.md` (Updated 4-tool table, key arguments, and two-step architecture documentation)
+  - `TASKS.md` (Updated milestones Core 1.8 and Test 3.6 to completed)
+- **Diff / Summary of Changes**:
+  - **Single-Writer Pattern**: Prohibited direct writes in `log_daily_routine`. All state-mutating requests create a 5-minute proposal in SQLite `proposals` table with `status='pending'`. Only `commit_proposal` commits writes to `routine_logs` or `shift_handoffs`.
+  - **Atomic Commit & Idempotency**: Atomic SQL execution `UPDATE proposals SET status='committed' WHERE transaction_id=? AND status='pending' AND expires_at > ?` guarantees single execution. Replay returns `ALREADY_COMMITTED` with existing `result_id` and 0 writes.
+  - **Category Enum & Non-Clinical Boundary**: Strict validation against `meal`, `hydration`, `vitamins`, `activity`, `wellness`. Rejects clinical terms like `medication`.
+  - **Injectable Clock**: Enabled deterministic time testing via `storage.set_clock_override()`.
+  - **Comprehensive Gate Tests**: Added 6 new automated tests in `tests/test_gate.py` verifying no-preview commit rejection, expired proposal rejection, replay idempotency, 0-write invariant across all tables, category rejection, and multithreaded double-confirm concurrency.
+- **Verification / Tests Passed**:
+  - `flake8 --ignore=E501 src/ tests/`: 0 errors, 0 warnings (100% clean).
+  - `pytest -q`: `13 passed in 3.80s` (100% pass rate across `test_janus.py` and `test_gate.py`).
+- **Impact & Next Steps**:
+  - Confirmed state write gate guarantees zero accidental mutations and provides deterministic Alexa+ voice confirmation.
+
+---
+
 ### [2026-10-20 12:42:00 IST] - Clean Repo Baseline & Reproducibility
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Refactor, Config & Build

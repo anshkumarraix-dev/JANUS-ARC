@@ -30,6 +30,8 @@ This document tracks all implementation, testing, and submission milestones for 
 - [x] **Core 1.5**: Implement tool `verify_routine_state` with two-step proposal preview and commit flow.
 - [x] **Core 1.6**: Implement tool `flag_missed_routine` for passive routine check-in window monitoring.
 - [x] **Core 1.7**: Mount FastMCP v2 server over Streamable HTTP (`MCP spec 2025-11-25`) at `http://127.0.0.1:8000/mcp` in `src/janus/server.py`.
+- [x] **Core 1.8**: Implement true two-step proposal gate in `src/janus/storage.py` and `server.py` (`proposals` table, injectable clock, category validation, atomic single-writer commit).
+- [x] **Core 1.9**: Implement schedule slot windows (`routine_schedule` table, senior `tz` IANA, +/- 30m grace completion, statuses `upcoming|due|completed|overdue`, `scan_missed_routines` escalation ladder, deduplication, and dynamic DB names).
 
 ---
 
@@ -48,6 +50,9 @@ This document tracks all implementation, testing, and submission milestones for 
 - [x] **Test 3.3**: Validate database mutation commit when `confirm=True`.
 - [x] **Test 3.4**: Run latency benchmark: assert local execution $< 100\text{ ms}$ (p95) and round-trip $< 500\text{ ms}$ (Achieved: 10.84 ms avg, 13.28 ms p95).
 - [x] **Test 3.5**: Validate Streamable HTTP tool discovery (`tools/list`) and invocation (`tools/call`) per MCP spec `2025-11-25`.
+- [x] **Test 3.6**: Add `tests/test_gate.py` covering no-preview commit rejection, expired proposals, replay idempotency, 0-write invariant, non-clinical category enum rejection, and thread concurrency.
+- [x] **Test 3.7**: Add `tests/test_schedule.py` covering schedule slot isolation (breakfast doesn't clear dinner, morning water doesn't clear afternoon slot), IST timezone boundary, alert dedupe, and unconfirmed events isolation.
+
 
 ---
 

@@ -47,12 +47,18 @@ flowchart LR
 
 ## 🛠️ The 4 Core MCP Tools
 
-| Tool Name | Type | Description | Confirmation Gate | Local Latency |
+| Tool Name | Type | Key Arguments | Confirmation Gate | Local Latency |
 |---|---|---|:---:|:---:|
-| `log_daily_routine` | Write | Logs non-clinical wellness events (hydration, meals, vitamins, walks). | Yes (`confirm=False` preview) | $< 20\text{ ms}$ |
-| `get_caregiver_summary` | Read | Aggregates daily logs into an Echo Show visual card timeline payload. | No (Read-only) | $< 15\text{ ms}$ |
-| `verify_routine_state` | Write | Verifies pending tasks and executes caregiver shift handoffs. | Yes (`confirm=False` preview) | $< 25\text{ ms}$ |
-| `flag_missed_routine` | Read | Scans scheduled daily check-in windows to spot missed routines. | No (Read-only) | $< 20\text{ ms}$ |
+| `log_daily_routine` | Proposal Write | `senior_id`, `category` (enum: meal, hydration, vitamins, activity, wellness), `details`, `timestamp?` | **Yes** (Creates `pending_confirmation` proposal preview; 0 writes to `routine_logs`) | $< 15\text{ ms}$ |
+| `get_caregiver_summary` | Read Query | `senior_id`, `date?` (YYYY-MM-DD) | **No** (Read-only timeline query) | $< 10\text{ ms}$ |
+| `verify_routine_state` | Commit Gate | `confirm` (bool), `transaction_id?` (tx_...), `senior_id?`, `action_type?`, `payload?` | **Yes** (`confirm=False` returns preview; `confirm=True` atomically commits live proposal with idempotent replay) | $< 15\text{ ms}$ |
+| `flag_missed_routine` | Read Query | `senior_id`, `routine_name`, `scheduled_time`, `urgency_level?` | **No** (Read-only ambient check) | $< 10\text{ ms}$ |
+
+### Strict Two-Step Confirmation Gate Architecture
+1. **Single-Writer Pattern**: Only `verify_routine_state(confirm=True, transaction_id=...)` can ever commit records into `routine_logs` or `shift_handoffs`.
+2. **Proposals Ledger**: Write proposals are created with a 5-minute expiration (`expires_at = now + 5 min`) in the `proposals` table.
+3. **Atomic & Idempotent**: Commits atomically execute `UPDATE proposals SET status='committed' WHERE transaction_id=? AND status='pending' AND expires_at > ?` and insert the target record in the same transaction. Replay of `confirm=True` returns `status: ALREADY_COMMITTED` with the existing `result_id` and performs 0 additional writes.
+4. **Non-Clinical Boundary**: Category enum strictly enforced (`meal`, `hydration`, `vitamins`, `activity`, `wellness`). Clinical terms such as `medication` are rejected at the gate.
 
 ---
 

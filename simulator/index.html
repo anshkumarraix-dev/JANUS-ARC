@@ -690,6 +690,7 @@
     const SENIOR_ID = 'margaret_01';
 
     // State Variables
+    let pendingTransactionId = null;
     let pendingHandoffPayload = null;
     let isListening = false;
     let recognition = null;
@@ -786,8 +787,17 @@
     function routeUtterance(rawText) {
       const text = rawText.toLowerCase().trim();
 
-      // 1. Shift Handoff Confirmation
+      // 1. Two-Step Confirmation Gate (Voice Confirmation)
       if (text.includes('confirm') || text === 'yes' || text === 'yes confirm') {
+        if (pendingTransactionId) {
+          return {
+            tool: 'verify_routine_state',
+            args: {
+              confirm: true,
+              transaction_id: pendingTransactionId
+            }
+          };
+        }
         return {
           tool: 'verify_routine_state',
           args: {
@@ -849,25 +859,25 @@
         };
       }
 
-      // 5. Daily Routine Logging
+      // 5. Daily Routine Logging (Proposes routine with category enum)
       let rtype = 'wellness';
       if (text.includes('water') || text.includes('drank') || text.includes('hydration') || text.includes('glass')) {
         rtype = 'hydration';
       } else if (text.includes('oatmeal') || text.includes('breakfast') || text.includes('lunch') || text.includes('dinner') || text.includes('ate') || text.includes('meal')) {
         rtype = 'meal';
-      } else if (text.includes('vitamin') || text.includes('pill') || text.includes('supplement')) {
+      } else if (text.includes('vitamin') || text.includes('supplement')) {
         rtype = 'vitamins';
-      } else if (text.includes('walk') || text.includes('garden') || text.includes('steps') || text.includes('porch')) {
-        rtype = 'walk';
+      } else if (text.includes('walk') || text.includes('garden') || text.includes('steps') || text.includes('porch') || text.includes('activity')) {
+        rtype = 'activity';
       }
 
       return {
         tool: 'log_daily_routine',
         args: {
           senior_id: SENIOR_ID,
-          routine_type: rtype,
-          logged_by: text.includes('david') || text.includes('sarah') ? 'caregiver' : 'senior_voice',
-          notes: rawText
+          category: rtype,
+          details: rawText,
+          logged_by: text.includes('david') || text.includes('sarah') ? 'caregiver' : 'senior_voice'
         }
       };
     }
@@ -932,22 +942,28 @@
       const dynamicSlot = document.getElementById('dynamic-slot');
 
       if (toolName === 'log_daily_routine') {
+        const txId = result.transaction_id;
+        pendingTransactionId = txId;
         dynamicSlot.innerHTML = `
-          <div class="echo-card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08);">
+          <div class="echo-card confirmation-gate-card">
             <div class="echo-card-header">
               <div class="card-title-group">
-                <span class="card-icon">✅</span>
-                <span class="card-title">${result.echo_show_card?.title || 'Routine Logged'}</span>
+                <span class="card-icon">🛡️</span>
+                <span class="card-title">${result.echo_show_card?.title || 'Proposed Routine'}</span>
               </div>
-              <span class="card-badge badge-green">Confirmed</span>
+              <span class="card-badge badge-amber">Proposal Preview (0 Writes)</span>
             </div>
-            <p style="font-size: 13px; color: #E2E8F0;">${result.notes || result.message}</p>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Logged by: ${result.logged_by} at ${new Date(result.timestamp).toLocaleTimeString()}</div>
+            <p style="font-size: 13px; color: #FEF08A;">${result.notes || result.preview?.details || 'Routine pending confirmation'}</p>
+            <div style="font-size: 11px; color: #CBD5E1; margin-top: 6px;">
+              Proposed by <strong>${result.logged_by || 'senior_voice'}</strong> • Expires in 5 min • ID: <code style="color: #67E8F9;">${txId}</code>
+            </div>
+            <div class="confirm-actions">
+              <button class="btn btn-confirm" onclick="confirmProposal('${txId}')">✅ Confirm & Write to Ledger</button>
+              <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Cancel</button>
+            </div>
           </div>
         `;
-        setAlexaSpeaking(false, `Recorded ${result.routine_type} for Margaret Vance.`);
-        // Refresh summary timeline automatically
-        setTimeout(() => refreshSummary(), 1200);
+        setAlexaSpeaking(false, result.spoken_prompt);
       }
 
       else if (toolName === 'get_caregiver_summary') {
@@ -959,6 +975,8 @@
 
       else if (toolName === 'verify_routine_state') {
         if (result.status === 'PROPOSAL_PREVIEW') {
+          const txId = result.transaction_id;
+          pendingTransactionId = txId;
           dynamicSlot.innerHTML = `
             <div class="echo-card confirmation-gate-card">
               <div class="echo-card-header">
@@ -973,7 +991,7 @@
                 <strong>Pending Items:</strong> ${result.routine_snapshot?.pending_routines?.join(', ') || 'None'}
               </div>
               <div class="confirm-actions">
-                <button class="btn btn-confirm" onclick="confirmShiftHandoff()">✅ Confirm Handoff to ${result.proposed_payload?.incoming_caregiver || 'Sarah'}</button>
+                <button class="btn btn-confirm" onclick="confirmProposal('${txId}')">✅ Confirm Handoff to ${result.proposed_payload?.incoming_caregiver || 'Sarah'}</button>
                 <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Cancel</button>
               </div>
             </div>
@@ -985,18 +1003,35 @@
               <div class="echo-card-header">
                 <div class="card-title-group">
                   <span class="card-icon">🤝</span>
-                  <span class="card-title">Shift Handoff Confirmed</span>
+                  <span class="card-title">${result.echo_show_card?.title || 'Committed to Ledger'}</span>
                 </div>
                 <span class="card-badge badge-green">Committed to SQLite</span>
               </div>
-              <p style="font-size: 13px; color: #FFFFFF;">${result.echo_show_card?.notes || 'Handoff committed'}</p>
+              <p style="font-size: 13px; color: #FFFFFF;">${result.echo_show_card?.notes || result.echo_show_card?.body || 'Confirmed and recorded in SQLite.'}</p>
               <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                Care transferred from <strong>${result.committed_record?.departing_caregiver}</strong> to <strong>${result.committed_record?.incoming_caregiver}</strong>.
+                Result ID: <strong>#${result.result_id}</strong> • Transaction: <code style="color: #67E8F9;">${result.transaction_id}</code>
               </div>
             </div>
           `;
+          pendingTransactionId = null;
           pendingHandoffPayload = null;
           setAlexaSpeaking(false, result.spoken_response);
+          setTimeout(() => refreshSummary(), 1200);
+        } else if (result.status === 'ALREADY_COMMITTED') {
+          dynamicSlot.innerHTML = `
+            <div class="echo-card" style="border-color: rgba(59, 130, 246, 0.5); background: rgba(59, 130, 246, 0.1);">
+              <div class="echo-card-header">
+                <div class="card-title-group">
+                  <span class="card-icon">ℹ️</span>
+                  <span class="card-title">Already Committed (Idempotent)</span>
+                </div>
+                <span class="card-badge badge-blue">0 Additional Writes</span>
+              </div>
+              <p style="font-size: 13px; color: #E2E8F0;">${result.message}</p>
+            </div>
+          `;
+          pendingTransactionId = null;
+          setAlexaSpeaking(false, "This proposal was already committed.");
         }
       }
 
@@ -1053,23 +1088,27 @@
         case 'hydration': return '💧';
         case 'meal': return '🥣';
         case 'vitamins': return '💊';
+        case 'activity':
         case 'walk':
         case 'mobility': return '🚶';
         default: return '✨';
       }
     }
 
-    function confirmShiftHandoff() {
+    function confirmProposal(txId) {
+      const targetId = txId || pendingTransactionId;
+      if (!targetId) {
+        setAlexaSpeaking(false, "No proposal found to confirm.");
+        return;
+      }
       callMCPTool('verify_routine_state', {
-        senior_id: SENIOR_ID,
-        action_type: 'shift_handoff',
-        payload: pendingHandoffPayload || {
-          departing_caregiver: 'David',
-          incoming_caregiver: 'Sarah',
-          handoff_notes: 'Confirmed shift handoff.'
-        },
-        confirm: true
+        confirm: true,
+        transaction_id: targetId
       });
+    }
+
+    function confirmShiftHandoff() {
+      confirmProposal(pendingTransactionId);
     }
 
     function dismissDynamicSlot() {

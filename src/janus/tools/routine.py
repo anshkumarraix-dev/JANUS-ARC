@@ -5,15 +5,18 @@ Defines Pydantic v2 data models for non-clinical daily routine logs and visual c
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
+
+
+VALID_CATEGORIES = {"meal", "hydration", "vitamins", "activity", "wellness"}
 
 
 class RoutineLogRequest(BaseModel):
     senior_id: str = Field(..., description="Unique senior profile ID (e.g., 'margaret_01')")
-    routine_type: str = Field(..., description="Type of routine: 'hydration', 'meal', 'vitamins', 'walk', 'mobility', 'wellness'")
-    logged_by: str = Field("senior_voice", description="Actor who logged the event ('senior_voice', 'caregiver_sarah')")
-    notes: str = Field("", description="Additional context, description, or amount (e.g., '500ml water')")
+    category: str = Field(..., description="Routine category: 'meal', 'hydration', 'vitamins', 'activity', 'wellness'")
+    details: str = Field("", description="Additional details, description, or quantity (e.g., '500ml water')")
+    timestamp: Optional[str] = Field(None, description="Optional ISO timestamp override")
 
 
 class VisualCardPayload(BaseModel):
@@ -22,6 +25,24 @@ class VisualCardPayload(BaseModel):
     body: Optional[str] = Field(None, description="Card descriptive text")
     stats: Optional[Dict[str, Any]] = Field(None, description="Key-value metrics")
     time: Optional[str] = Field(None, description="ISO timestamp")
+
+
+class RoutineProposalPreview(BaseModel):
+    senior_id: str
+    category: str
+    details: str
+    timestamp: str
+    actor: str
+    expires_at: str
+
+
+class RoutineLogProposalResponse(BaseModel):
+    transaction_id: str
+    status: str = "pending_confirmation"
+    preview: Dict[str, Any]
+    spoken_prompt: str
+    database_writes: int = 0
+    echo_show_card: Optional[Dict[str, Any]] = None
 
 
 class RoutineLogResponse(BaseModel):
@@ -36,10 +57,17 @@ class RoutineLogResponse(BaseModel):
     message: str
 
 
+class CaregiverSummaryRequest(BaseModel):
+    senior_id: str = Field(..., description="Target senior profile ID")
+    date: Optional[str] = Field(None, description="Target date in 'YYYY-MM-DD' format")
+    filter_status: str = Field("all", description="Filter slots by status: 'all', 'completed', or 'pending'")
+
+
 class MissedRoutineRequest(BaseModel):
     senior_id: str
-    routine_name: str
-    scheduled_time: str
+    threshold_hours: int = 1
+    routine_name: Optional[str] = None
+    scheduled_time: Optional[str] = None
     urgency_level: str = "medium"
 
 
@@ -50,11 +78,13 @@ class MissedRoutineAlert(BaseModel):
 
 
 class MissedRoutineResponse(BaseModel):
-    status: str = "FLAGGED"
+    status: str
     senior_id: str
-    routine_name: str
-    scheduled_time: str
-    urgency_level: str
+    senior_name: Optional[str] = None
+    routine_name: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    urgency_level: Optional[str] = None
     is_missed: bool
     alert_payload: MissedRoutineAlert
     message: str
+
