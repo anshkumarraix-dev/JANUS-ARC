@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Janus (ElderSync) — Alexa+ Echo Show Smart Screen Simulator</title>
+  <meta name="description" content="Simulated Alexa+ Echo Show smart display dashboard for Janus (ElderSync) FastMCP v2 server over Streamable HTTP.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090E;
+      --screen-bg: #0D111A;
+      --card-bg: rgba(22, 28, 42, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #06B6D4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.35);
+      --accent-blue: #3B82F6;
+      --accent-green: #10B981;
+      --accent-green-glow: rgba(16, 185, 129, 0.3);
+      --accent-amber: #F59E0B;
+      --accent-amber-glow: rgba(245, 158, 11, 0.3);
+      --accent-rose: #F43F5E;
+      --text-main: #F3F4F6;
+      --text-muted: #94A3B8;
+      --alexa-glow: #00CAFF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.12) 0px, transparent 50%);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* Container Header */
+    .app-header {
+      text-align: center;
+      margin-bottom: 20px;
+      max-width: 800px;
+    }
+
+    .app-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .app-header p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .status-badge-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+    }
+
+    .pill-green {
+      color: var(--accent-green);
+      border-color: rgba(16, 185, 129, 0.3);
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .pulse-dot {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Hardware Echo Show Chassis */
+    .echo-device-frame {
+      background: linear-gradient(145deg, #1E222D, #0A0D14);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      padding: 20px;
+      box-shadow: 
+        0 25px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 40px -10px rgba(6, 182, 212, 0.15);
+      position: relative;
+    }
+
+    /* Screen Bezel Dot (Camera) */
+    .camera-lens {
+      position: absolute;
+      top: 9px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      background: #2D3748;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Viewport: Strict 768x480 Echo Show aspect */
+    .screen-viewport {
+      width: 768px;
+      height: 480px;
+      background: var(--screen-bg);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Smart Screen Top Bar */
+    .screen-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 8px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .senior-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .senior-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #06B6D4, #3B82F6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+    }
+
+    .senior-text h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .senior-text p {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .screen-clock {
+      text-align: right;
+    }
+
+    .clock-time {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .clock-date {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Screen Main Content Area */
+    .screen-body {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Echo Show Visual Card (Arm's-length glanceable) */
+    .echo-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(12px);
+    }
+
+    .echo-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-icon {
+      font-size: 20px;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: #FFFFFF;
+    }
+
+    .card-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .badge-cyan { background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.4); }
+    .badge-amber { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.4); }
+
+    /* Timeline Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Checklist & Events */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .card-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 12px;
+    }
+
+    .list-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Confirmation Banner (Safety Gate) */
+    .confirmation-gate-card {
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(20, 24, 33, 0.9));
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-confirm {
+      background: var(--accent-green);
+      color: #FFFFFF;
+      box-shadow: 0 2px 10px var(--accent-green-glow);
+    }
+
+    .btn-confirm:hover {
+      background: #059669;
+    }
+
+    .btn-cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Alexa Glowing Voice Ring (Echo Show Lightbar) */
+    .alexa-lightbar {
+      height: 4px;
+      width: 100%;
+      background: transparent;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      transition: all 0.4s ease;
+    }
+
+    .alexa-lightbar.active {
+      background: linear-gradient(90deg, #00CAFF, #0055FF, #00CAFF);
+      background-size: 200% 100%;
+      box-shadow: 0 -4px 16px var(--alexa-glow);
+      animation: lightbarShift 1.5s infinite linear;
+    }
+
+    @keyframes lightbarShift {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    /* Alexa Spoken Response Footer Bar */
+    .screen-spoken-bar {
+      background: rgba(10, 14, 23, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      min-height: 44px;
+    }
+
+    .alexa-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--alexa-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-weight: 700;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .alexa-speech-text {
+      color: #E2E8F0;
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    /* Input & Control Panel */
+    .control-panel {
+      width: 768px;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 6px 8px;
+    }
+
+    .mic-button {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.2s;
+    }
+
+    .mic-button:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-cyan);
+    }
+
+    .mic-button.listening {
+      background: var(--accent-rose);
+      animation: pulse 1s infinite;
+      border-color: transparent;
+    }
+
+    .text-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #FFFFFF;
+      font-family: inherit;
+      font-size: 14px;
+      outline: none;
+      padding: 0 8px;
+    }
+
+    .text-input::placeholder {
+      color: #64748B;
+    }
+
+    .send-button {
+      padding: 8px 18px;
+      background: var(--accent-blue);
+      border: none;
+      border-radius: 8px;
+      color: #FFFFFF;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .send-button:hover {
+      background: #2563EB;
+    }
+
+    /* Preset Chips */
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chip:hover {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.4);
+      color: var(--text-main);
+    }
+
+    /* Debug RPC Drawer */
+    .debug-box {
+      width: 768px;
+      margin-top: 14px;
+      background: rgba(10, 14, 23, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #94A3B8;
+    }
+
+    .debug-header {
+      display: flex;
+      justify-content: space-between;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .debug-content {
+      margin-top: 8px;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #CBD5E1;
+      display: none;
+    }
+
+    .debug-content.open {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Page Header -->
+  <header class="app-header">
+    <h1>Janus (ElderSync) — Alexa+ Echo Show Simulator</h1>
+    <p>Simulating voice-first senior routine logging and two-step caregiver shift handoffs over FastMCP v2 Streamable HTTP</p>
+    <div class="status-badge-row">
+      <span class="pill pill-green" id="server-status-pill">
+        <span class="dot pulse-dot"></span>
+        <span id="server-status-text">Server: 0.0.0.0:8000/mcp</span>
+      </span>
+      <span class="pill" id="latency-pill">Latency: -- ms</span>
+      <span class="pill">MCP Spec: 2025-11-25</span>
+    </div>
+  </header>
+
+  <!-- Hardware Chassis (768x480 Echo Show Viewport) -->
+  <main class="echo-device-frame" id="echo-chassis">
+    <div class="camera-lens" aria-hidden="true"></div>
+
+    <div class="screen-viewport" id="screen-viewport">
+      <!-- Screen Header -->
+      <div class="screen-header">
+        <div class="senior-info">
+          <div class="senior-avatar">MV</div>
+          <div class="senior-text">
+            <h2 id="senior-display-name">Margaret Vance (Age 78)</h2>
+            <p id="senior-display-status">Senior Household Member • Active</p>
+          </div>
+        </div>
+        <div class="screen-clock">
+          <div class="clock-time" id="clock-time">10:45 AM</div>
+          <div class="clock-date" id="clock-date">Tuesday, Oct 20</div>
+        </div>
+      </div>
+
+      <!-- Main Visual Display Canvas -->
+      <div class="screen-body" id="screen-body">
+        <!-- Default Landing Timeline Card -->
+        <div class="echo-card" id="timeline-card">
+          <div class="echo-card-header">
+            <div class="card-title-group">
+              <span class="card-icon">📋</span>
+              <span class="card-title">Daily Care Timeline</span>
+            </div>
+            <span class="card-badge badge-cyan" id="card-date-badge">Today</span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-val" id="stat-hydration">0</div>
+              <div class="stat-lbl">Hydration</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-meals">0</div>
+              <div class="stat-lbl">Meals</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-vitamins">No</div>
+              <div class="stat-lbl">Vitamins</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="stat-mobility">0</div>
+              <div class="stat-lbl">Walks</div>
+            </div>
+          </div>
+
+          <div class="card-list" id="activity-log-list">
+            <div class="card-list-item" style="color: var(--text-muted); justify-content: center;">
+              Speak or type a command below to log daily routines or check status.
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Slot for Confirmation Gates or Alerts -->
+        <div id="dynamic-slot"></div>
+      </div>
+
+      <!-- Alexa Spoken Audio Feedback Bar -->
+      <div class="screen-spoken-bar">
+        <div class="alexa-icon">A</div>
+        <div class="alexa-speech-text" id="alexa-speech-text">
+          "Janus is active. Say 'I drank water', 'Show caregiver summary', or 'Hand off shift to Sarah'."
+        </div>
+      </div>
+
+      <!-- Lightbar Animation -->
+      <div class="alexa-lightbar" id="alexa-lightbar"></div>
+    </div>
+  </main>
+
+  <!-- Utterance Input & Preset Chips -->
+  <section class="control-panel">
+    <form class="input-bar" id="utterance-form" onsubmit="event.preventDefault(); submitUtterance();">
+      <button type="button" class="mic-button" id="mic-btn" onclick="toggleMicrophone()" title="Toggle Web Speech recognition">
+        🎤
+      </button>
+      <input 
+        type="text" 
+        class="text-input" 
+        id="utterance-input" 
+        placeholder="Speak or type: 'I drank a glass of water', 'Show summary', 'Hand off shift to Sarah'..." 
+        autocomplete="off"
+      />
+      <button type="submit" class="send-button" id="send-btn">Send Turn</button>
+    </form>
+
+    <!-- Preset Utterance Chips for 1-Click Evaluation -->
+    <div class="chip-row">
+      <span class="chip" onclick="handleChipClick('I drank 2 glasses of water')">💧 Log 2 Glasses Water</span>
+      <span class="chip" onclick="handleChipClick('Finished morning oatmeal and tea')">🥣 Log Breakfast</span>
+      <span class="chip" onclick="handleChipClick('Margaret took her morning vitamins')">💊 Log Vitamins</span>
+      <span class="chip" onclick="handleChipClick('Walked 20 minutes in the garden')">🚶 Log Garden Walk</span>
+      <span class="chip" onclick="handleChipClick('Show caregiver summary')">📋 Caregiver Summary</span>
+      <span class="chip" onclick="handleChipClick('Hand off shift from David to Sarah')">🤝 Shift Handoff (Preview)</span>
+      <span class="chip" onclick="handleChipClick('Confirm shift handoff')">✅ Confirm Handoff</span>
+      <span class="chip" onclick="handleChipClick('Check missed routines')">⚠️ Check Missed Routines</span>
+    </div>
+
+    <!-- Live JSON-RPC Debug Drawer -->
+    <div class="debug-box">
+      <div class="debug-header" onclick="toggleDebug()">
+        <span>📡 MCP Streamable HTTP JSON-RPC Inspector</span>
+        <span id="debug-toggle-indicator">[+ Expand]</span>
+      </div>
+      <div class="debug-content" id="debug-content">No MCP requests dispatched yet.</div>
+    </div>
+  </section>
+
+  <!-- Simulator Logic -->
+  <script>
+    // Configuration
+    const MCP_ENDPOINT = 'http://127.0.0.1:8000/mcp';
+    const SENIOR_ID = 'margaret_01';
+
+    // State Variables
+    let pendingHandoffPayload = null;
+    let isListening = false;
+    let recognition = null;
+
+    // Clock Updater
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock-time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('clock-date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Initialize Web Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('mic-btn').classList.add('listening');
+        setAlexaSpeaking(true, "Listening to ambient voice...");
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('utterance-input').value = transcript;
+        submitUtterance();
+      };
+
+      recognition.onerror = (e) => {
+        console.warn('SpeechRecognition error:', e);
+        stopListening();
+        setAlexaSpeaking(false, "Microphone recognition error. Please use the typed input box.");
+      };
+
+      recognition.onend = () => {
+        stopListening();
+      };
+    }
+
+    function toggleMicrophone() {
+      if (!recognition) {
+        alert("Web Speech API is not supported in this browser. Please type your utterance into the input box.");
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      document.getElementById('mic-btn').classList.remove('listening');
+    }
+
+    function setAlexaSpeaking(active, text) {
+      const lightbar = document.getElementById('alexa-lightbar');
+      const speechElem = document.getElementById('alexa-speech-text');
+      
+      if (active) {
+        lightbar.classList.add('active');
+      } else {
+        lightbar.classList.remove('active');
+      }
+
+      if (text) {
+        speechElem.textContent = text;
+        // Text-to-speech synthesis if available
+        if ('speechSynthesis' in window && !isListening && text.length > 5) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.05;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    }
+
+    function handleChipClick(text) {
+      document.getElementById('utterance-input').value = text;
+      submitUtterance();
+    }
+
+    // Deterministic Keyword Intent Router (ADR-002: <5ms resolution, zero API costs)
+    function routeUtterance(rawText) {
+      const text = rawText.toLowerCase().trim();
+
+      // 1. Shift Handoff Confirmation
+      if (text.includes('confirm') || text === 'yes' || text === 'yes confirm') {
+        return {
+          tool: 'verify_routine_state',
+          args: {
+            senior_id: SENIOR_ID,
+            action_type: 'shift_handoff',
+            payload: pendingHandoffPayload || {
+              departing_caregiver: 'David',
+              incoming_caregiver: 'Sarah',
+              handoff_notes: 'Confirmed shift handoff via voice consent.'
+            },
+            confirm: true
+          }
+        };
+      }
+
+      // 2. Shift Handoff Preview
+      if (text.includes('hand off') || text.includes('handoff') || text.includes('shift')) {
+        let departing = 'David';
+        let incoming = 'Sarah';
+        if (text.includes('sarah to david')) {
+          departing = 'Sarah'; incoming = 'David';
+        }
+        pendingHandoffPayload = {
+          departing_caregiver: departing,
+          incoming_caregiver: incoming,
+          handoff_notes: 'Margaret completed morning routines; reminded for afternoon hydration.'
+        };
+        return {
+          tool: 'verify_routine_state',
+          args: {
+            senior_id: SENIOR_ID,
+            action_type: 'shift_handoff',
+            payload: pendingHandoffPayload,
+            confirm: false
+          }
+        };
+      }
+
+      // 3. Caregiver Summary & Timeline Query
+      if (text.includes('summary') || text.includes('timeline') || text.includes('what did') || text.includes('status')) {
+        return {
+          tool: 'get_caregiver_summary',
+          args: {
+            senior_id: SENIOR_ID
+          }
+        };
+      }
+
+      // 4. Missed Routine Check
+      if (text.includes('missed') || text.includes('forget') || text.includes('check-in')) {
+        return {
+          tool: 'flag_missed_routine',
+          args: {
+            senior_id: SENIOR_ID,
+            routine_name: 'Afternoon Hydration',
+            scheduled_time: '14:00',
+            urgency_level: 'high'
+          }
+        };
+      }
+
+      // 5. Daily Routine Logging
+      let rtype = 'wellness';
+      if (text.includes('water') || text.includes('drank') || text.includes('hydration') || text.includes('glass')) {
+        rtype = 'hydration';
+      } else if (text.includes('oatmeal') || text.includes('breakfast') || text.includes('lunch') || text.includes('dinner') || text.includes('ate') || text.includes('meal')) {
+        rtype = 'meal';
+      } else if (text.includes('vitamin') || text.includes('pill') || text.includes('supplement')) {
+        rtype = 'vitamins';
+      } else if (text.includes('walk') || text.includes('garden') || text.includes('steps') || text.includes('porch')) {
+        rtype = 'walk';
+      }
+
+      return {
+        tool: 'log_daily_routine',
+        args: {
+          senior_id: SENIOR_ID,
+          routine_type: rtype,
+          logged_by: text.includes('david') || text.includes('sarah') ? 'caregiver' : 'senior_voice',
+          notes: rawText
+        }
+      };
+    }
+
+    // Call FastMCP v2 Server over Streamable HTTP (spec 2025-11-25)
+    async function callMCPTool(toolName, toolArgs) {
+      const payload = {
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'tools/call',
+        params: {
+          name: toolName,
+          arguments: toolArgs
+        }
+      };
+
+      const startTime = performance.now();
+      setAlexaSpeaking(true, `Querying Janus FastMCP (${toolName})...`);
+
+      try {
+        const response = await fetch(MCP_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'MCP-Protocol-Version': '2025-11-25'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const elapsedMs = Math.round(performance.now() - startTime);
+        document.getElementById('latency-pill').textContent = `Latency: ${elapsedMs} ms`;
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        logDebug(payload, data, elapsedMs);
+
+        if (data.error) {
+          throw new Error(data.error.message || 'JSON-RPC Error');
+        }
+
+        // FastMCP v2 wraps tool results in structuredContent.result
+        const result = data.result?.structuredContent?.result || data.result;
+        handleToolSuccess(toolName, result);
+
+      } catch (err) {
+        console.error('MCP Error:', err);
+        setAlexaSpeaking(false, `Connection failure: Could not reach Janus MCP at ${MCP_ENDPOINT}. Please verify 'python src/janus/server.py' is running.`);
+        document.getElementById('server-status-pill').classList.remove('pill-green');
+        document.getElementById('server-status-pill').style.borderColor = 'var(--accent-rose)';
+        document.getElementById('server-status-text').textContent = 'Server Offline';
+      }
+    }
+
+    // Process and Render Tool Result on the Echo Show Dashboard
+    function handleToolSuccess(toolName, result) {
+      document.getElementById('server-status-pill').classList.add('pill-green');
+      document.getElementById('server-status-text').textContent = 'Server: Online (8000/mcp)';
+
+      const dynamicSlot = document.getElementById('dynamic-slot');
+
+      if (toolName === 'log_daily_routine') {
+        dynamicSlot.innerHTML = `
+          <div class="echo-card" style="border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.08);">
+            <div class="echo-card-header">
+              <div class="card-title-group">
+                <span class="card-icon">✅</span>
+                <span class="card-title">${result.echo_show_card?.title || 'Routine Logged'}</span>
+              </div>
+              <span class="card-badge badge-green">Confirmed</span>
+            </div>
+            <p style="font-size: 13px; color: #E2E8F0;">${result.notes || result.message}</p>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">Logged by: ${result.logged_by} at ${new Date(result.timestamp).toLocaleTimeString()}</div>
+          </div>
+        `;
+        setAlexaSpeaking(false, `Recorded ${result.routine_type} for Margaret Vance.`);
+        // Refresh summary timeline automatically
+        setTimeout(() => refreshSummary(), 1200);
+      }
+
+      else if (toolName === 'get_caregiver_summary') {
+        dynamicSlot.innerHTML = '';
+        renderSummaryCard(result);
+        const speech = `Here is Margaret's summary for today: ${result.total_events} activities recorded. ${result.pending_routines?.length || 0} routines still pending.`;
+        setAlexaSpeaking(false, speech);
+      }
+
+      else if (toolName === 'verify_routine_state') {
+        if (result.status === 'PROPOSAL_PREVIEW') {
+          dynamicSlot.innerHTML = `
+            <div class="echo-card confirmation-gate-card">
+              <div class="echo-card-header">
+                <div class="card-title-group">
+                  <span class="card-icon">🛡️</span>
+                  <span class="card-title">Confirmation Gate: Shift Handoff</span>
+                </div>
+                <span class="card-badge badge-amber">Proposal Preview (0 Writes)</span>
+              </div>
+              <p style="font-size: 13px; color: #FEF08A; line-height: 1.4;">${result.preview_summary}</p>
+              <div style="font-size: 11px; color: #CBD5E1; margin-top: 6px;">
+                <strong>Pending Items:</strong> ${result.routine_snapshot?.pending_routines?.join(', ') || 'None'}
+              </div>
+              <div class="confirm-actions">
+                <button class="btn btn-confirm" onclick="confirmShiftHandoff()">✅ Confirm Handoff to ${result.proposed_payload?.incoming_caregiver || 'Sarah'}</button>
+                <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Cancel</button>
+              </div>
+            </div>
+          `;
+          setAlexaSpeaking(false, result.spoken_prompt);
+        } else if (result.status === 'COMMITTED') {
+          dynamicSlot.innerHTML = `
+            <div class="echo-card" style="border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1);">
+              <div class="echo-card-header">
+                <div class="card-title-group">
+                  <span class="card-icon">🤝</span>
+                  <span class="card-title">Shift Handoff Confirmed</span>
+                </div>
+                <span class="card-badge badge-green">Committed to SQLite</span>
+              </div>
+              <p style="font-size: 13px; color: #FFFFFF;">${result.echo_show_card?.notes || 'Handoff committed'}</p>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                Care transferred from <strong>${result.committed_record?.departing_caregiver}</strong> to <strong>${result.committed_record?.incoming_caregiver}</strong>.
+              </div>
+            </div>
+          `;
+          pendingHandoffPayload = null;
+          setAlexaSpeaking(false, result.spoken_response);
+        }
+      }
+
+      else if (toolName === 'flag_missed_routine') {
+        const alert = result.alert_payload;
+        dynamicSlot.innerHTML = `
+          <div class="echo-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08);">
+            <div class="echo-card-header">
+              <div class="card-title-group">
+                <span class="card-icon">🔔</span>
+                <span class="card-title">${alert.echo_show_banner?.title}</span>
+              </div>
+              <span class="card-badge badge-amber">${result.urgency_level.toUpperCase()} Priority</span>
+            </div>
+            <p style="font-size: 13px; color: #FEF08A;">${alert.voice_prompt}</p>
+            <div class="confirm-actions">
+              <button class="btn btn-confirm" onclick="handleChipClick('I drank water now')">${alert.echo_show_banner?.action_button || 'Log Now'}</button>
+              <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Dismiss</button>
+            </div>
+          </div>
+        `;
+        setAlexaSpeaking(false, alert.voice_prompt);
+      }
+    }
+
+    // Render Timeline Card metrics and recent log rows
+    function renderSummaryCard(data) {
+      const stats = data.visual_card?.stats || {};
+      document.getElementById('stat-hydration').textContent = stats.hydration_entries || 0;
+      document.getElementById('stat-meals').textContent = stats.meals_count || 0;
+      document.getElementById('stat-vitamins').textContent = stats.vitamins_completed ? 'Yes' : 'Pending';
+      document.getElementById('stat-vitamins').style.color = stats.vitamins_completed ? 'var(--accent-green)' : 'var(--accent-amber)';
+      document.getElementById('stat-mobility').textContent = stats.mobility_entries || 0;
+
+      const listElem = document.getElementById('activity-log-list');
+      if (!data.events || data.events.length === 0) {
+        listElem.innerHTML = '<div class="card-list-item" style="color: var(--text-muted); justify-content: center;">No activities logged yet today.</div>';
+        return;
+      }
+
+      listElem.innerHTML = data.events.slice(-4).map(e => `
+        <div class="card-list-item">
+          <div class="list-item-left">
+            <span>${getIcon(e.routine_type)}</span>
+            <strong>${e.routine_type.toUpperCase()}</strong>: ${e.value || e.notes || 'Completed'}
+          </div>
+          <span style="color: var(--text-muted);">${new Date(e.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+        </div>
+      `).join('');
+    }
+
+    function getIcon(rtype) {
+      switch(rtype?.toLowerCase()) {
+        case 'hydration': return '💧';
+        case 'meal': return '🥣';
+        case 'vitamins': return '💊';
+        case 'walk':
+        case 'mobility': return '🚶';
+        default: return '✨';
+      }
+    }
+
+    function confirmShiftHandoff() {
+      callMCPTool('verify_routine_state', {
+        senior_id: SENIOR_ID,
+        action_type: 'shift_handoff',
+        payload: pendingHandoffPayload || {
+          departing_caregiver: 'David',
+          incoming_caregiver: 'Sarah',
+          handoff_notes: 'Confirmed shift handoff.'
+        },
+        confirm: true
+      });
+    }
+
+    function dismissDynamicSlot() {
+      document.getElementById('dynamic-slot').innerHTML = '';
+      setAlexaSpeaking(false, "Action cancelled.");
+    }
+
+    async function refreshSummary() {
+      await callMCPTool('get_caregiver_summary', { senior_id: SENIOR_ID });
+    }
+
+    function submitUtterance() {
+      const input = document.getElementById('utterance-input');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      const routed = routeUtterance(text);
+      callMCPTool(routed.tool, routed.args);
+      input.value = '';
+    }
+
+    function logDebug(req, res, ms) {
+      const elem = document.getElementById('debug-content');
+      elem.textContent = `[${new Date().toLocaleTimeString()}] (${ms} ms)\nREQUEST:\n${JSON.stringify(req, null, 2)}\n\nRESPONSE:\n${JSON.stringify(res, null, 2)}`;
+    }
+
+    function toggleDebug() {
+      const content = document.getElementById('debug-content');
+      const ind = document.getElementById('debug-toggle-indicator');
+      if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        ind.textContent = '[+ Expand]';
+      } else {
+        content.classList.add('open');
+        ind.textContent = '[- Collapse]';
+      }
+    }
+
+    // Auto-fetch summary on simulator initial load
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshSummary();
+    });
+  </script>
+</body>
+</html>

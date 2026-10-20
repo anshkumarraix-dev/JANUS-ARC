@@ -1,0 +1,34 @@
+# Python virtual environments & bytecode
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest & testing caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Packaging & Build artifacts
+*.egg-info/
+src/*.egg-info/
+build/
+dist/
+eggs/
+.eggs/
+
+# SQLite Databases & logs
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# IDE & Editor settings
+.vscode/
+.idea/
+
+# Operating System files
+.DS_Store
+Thumbs.db
