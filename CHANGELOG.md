@@ -29,6 +29,240 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-21 22:25:00 IST] - Complete Git Packaging, Logical Commits, Placeholder Standardization, and Clone Verification
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Git Hygiene, CI/CD, Documentation & Packaging
+- **Files Modified / Created**:
+  - `.gitignore` (Added `.smoke_venv/` to ignore reviewer smoke virtual environments).
+  - `README.md`, `PRODUCT_FEEDBACK.md`, `FRICTION_LOG.md`, `pyproject.toml` (Standardized all remote GitHub repository and workflow URLs with explicit `<YOUR_GITHUB_USER>` placeholders).
+  - Committed all source modules, tests, scripts, templates, and infrastructure files across logical commits.
+- **Diff / Summary of Changes**:
+  - Audited `.gitignore` confirming zero exclusions of `scripts/`, `Dockerfile`, `docker-compose.yml`, `src/janus/*.py`, or `tests/*.py`.
+  - Added `.smoke_venv/` to `.gitignore`.
+  - Staged and organized complete repository tree into 6 logical commits: `auth`, `gate`, `audit`, `apl`, `deploy`, and `docs`.
+  - Tested clean clone-and-run verification in an isolated temporary directory.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `58 passed in 19.07s` (100% pass across all test suites).
+  - Clone-and-verify checked: verified all files present in fresh clone.
+- **Impact & Next Steps**:
+  - Repository is 100% self-contained and ready for GitHub push and external reviewer cloning.
+
+### [2026-10-21 22:06:00 IST] - Scaffold FRICTION_LOG.md and PRODUCT_FEEDBACK.md with Clean Entry Templates
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Documentation & Hackathon Governance
+- **Files Modified / Created**:
+  - `FRICTION_LOG.md` (Replaced prior content with empty scaffolding template: per entry fields for what I tried, exact command/URL, versions, exact error text, time lost, workaround, suggested fix, and date; zero pre-filled content).
+  - `PRODUCT_FEEDBACK.md` (Replaced prior content with empty scaffolding template: per entry fields for what I tried, exact command/URL, versions, exact error text/obstacle, time lost, workaround, suggested fix, and date; zero pre-filled content).
+- **Diff / Summary of Changes**:
+  - Deleted all unconfirmed/pre-filled entries in both documents per strict governance rules.
+  - Standardized entry schema across both files for future entry population.
+  - Audited `CHANGELOG.md` across entire project trajectory to compile candidate real friction points with line references for human confirmation.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `58 passed in 20.24s` (100% pass across all test suites).
+- **Impact & Next Steps**:
+  - Waiting for human review and confirmation of candidate friction items before writing details.
+
+
+### [2026-10-21 22:04:00 IST] - Stable Reviewable Deployment: Non-Root Dockerfile, Docker Compose Volume, Cloudflare Tunnel Scripts, and DEPLOY.md
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Infrastructure, DevOps, Documentation, and Tunneling
+- **Files Modified / Created**:
+  - `Dockerfile` (Created production container spec on `python:3.12-slim`: non-root `appuser:appgroup` UID 10001, automated 30s healthcheck against `/health`, exposed port 8000, and persistent `/app/data` directory ownership).
+  - `docker-compose.yml` (Created compose configuration with service `janus`, named volume `janus-data` mounted to `/app/data` for persistent SQLite state, healthcheck, and restart policy).
+  - `scripts/tunnel.sh` (Created Cloudflare quick-tunnel wrapper: launches `cloudflared tunnel --url`, captures public HTTPS trycloudflare.com URL, prints exact `.agents/mcp_config.json` snippet, and handles graceful cleanup).
+  - `scripts/tunnel.ps1` (Created native PowerShell Cloudflare quick-tunnel wrapper for Windows).
+  - `docs/DEPLOY.md` (Created deployment documentation covering Docker run/compose, Cloudflare quick-tunnel ephemeral URL restart caveat, and a 6-point verification checklist for evaluating free container hosts without assuming pricing or availability).
+  - `README.md` (Updated file layout tree with deployment artifacts).
+- **Diff / Summary of Changes**:
+  - **Hardened Container Infrastructure**:
+    - Created `Dockerfile` adhering to security best practices: minimal Debian slim base, dedicated non-root user, multi-stage layer caching, healthcheck probe, and SQLite data isolation.
+    - Configured `docker-compose.yml` with named volume `janus-data` ensuring senior routine logs and cryptographic audit trail survive container restarts.
+  - **Cloudflare Tunnel Automation**:
+    - Wrapped `cloudflared tunnel --url http://127.0.0.1:8000` to provide instant HTTPS reverse proxying for Alexa+ testing.
+    - Explicitly documented the ephemeral lifecycle caveat (trycloudflare URLs regenerate on process restart).
+  - **Third-Party Host Evaluation Framework**:
+    - Documented comprehensive verification criteria for free container hosts (inactivity sleep vs. 500ms voice SLA, volume persistence for SQLite, HTTP streaming proxying, HTTPS termination, monthly caregiver polling quotas, and credit expiration).
+- **Verification / Tests Passed**:
+  - `pytest -q`: `58 passed in 15.29s` (100% pass across all test suites).
+- **Impact & Next Steps**:
+  - Reviewers and caregivers have a turnkey deployment pathway via Docker or local tunnel.
+
+
+### [2026-10-21 21:56:00 IST] - Reviewer 3-Command Quickstart, scripts/smoke.sh & smoke.ps1, GitHub CI Workflow, and README Rewrite
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Tooling, CI/CD, Documentation, and Reviewer Experience
+- **Files Modified / Created**:
+  - `scripts/smoke.sh` (Created end-to-end POSIX reviewer smoke test script: creates clean `.smoke_venv`, runs `pip install -e '.[dev]'`, executes `pytest -q`, launches Janus server in background on port 8000, curls `/health`, queries MCP `tools/list`, verifies all 4 tools, shuts down server cleanly, and exits nonzero on failure).
+  - `scripts/smoke.ps1` (Created native PowerShell smoke test script for Windows reviewers mirroring `smoke.sh`).
+  - `.github/workflows/ci.yml` (Configured GitHub Actions CI workflow on Python 3.12: checks out, installs dependencies, runs pytest with coverage, and executes `bash scripts/smoke.sh`).
+  - `src/janus/server.py` (Added `/health` route returning HTTP 200 with service metadata and protocol version).
+  - `tests/test_janus.py` (Added `test_health_check_endpoint` validating `/health` response).
+  - `README.md` (Completely rewritten: only claims proven by tests, accurate Python MCP SDK name `mcp.server.mcpserver.MCPServer`, 3-command quickstart, updated architecture diagram, explicit "Known limitations" section, and accurate file tree removing phantom non-existent files).
+  - `TASKS.md` (Updated with CI/CD and smoke test milestones).
+- **Diff / Summary of Changes**:
+  - **Smoke Test Execution**:
+    - Ran `scripts/smoke.sh` end-to-end: virtual environment created, dependencies installed, 58/58 tests passed in 19.81s, server started, `/health` and `tools/list` successfully probed, and clean process termination verified.
+  - **Accurate SDK & Architecture**:
+    - Replaced generic/imprecise framework mentions with the exact imported SDK: Official Python Model Context Protocol (`mcp.server.mcpserver.MCPServer`), Starlette ASGI, and Streamable HTTP (`MCP spec 2025-11-25`).
+  - **Explicit Known Limitations Documented**:
+    - Clearly documented: no physical Alexa device testing (APL 2024.3 spec & simulator only), demo-mode token authorization, and single-node SQLite local persistence.
+- **Verification / Tests Passed**:
+  - `scripts/smoke.sh`: Complete pass (0 exit code).
+  - `pytest -q`: `58 passed in 18.94s` (100% pass across all 7 test files).
+- **Impact & Next Steps**:
+  - Reviewers can clone and verify the entire system in 3 commands or run `bash scripts/smoke.sh`.
+
+
+### [2026-10-21 21:38:00 IST] - Prove Claims: OutputSchema Contract Tests, 50-Call Subprocess Real-Network Latency Benchmark, Non-Clinical Wording Fix, and 97% Module Coverage
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Test, Benchmarking, Conformance, Safety & Coverage
+- **Files Modified / Created**:
+  - `tests/test_real_network_latency.py` (Created live uvicorn subprocess runner on an ephemeral port; contract test asserting outputSchema presence and json schema validation per tool; 50-call benchmark asserting p95 < 100ms via real `httpx.Client` without TestClient, printing formatted table).
+  - `tests/test_auth_audit.py` (Added tests for `check_senior_access` token validation, `ConfirmationGate` proposal preview expiration, missing transaction ID rejection, invalid category checking, and cryptographic audit hash chain verification + CLI exit code).
+  - `src/janus/auth.py` (Implemented token verification, Bearer header extraction, role resolution, and senior profile access authorization).
+  - `src/janus/gate.py` (Implemented two-step confirmation gate wrapping `propose`, `preview`, `commit`, and `cancel` lifecycles).
+  - `src/janus/audit.py` (Implemented SHA-256 hash chaining verification with CLI entrypoint).
+  - `src/janus/storage.py` (Added SHA-256 hash chaining on proposal commit; added in-memory LRU-style caches `_senior_cache` and `_schedule_slots_cache` to eliminate repeated SQLite connection overhead; moved `PRAGMA journal_mode = WAL` to `init_db()` to eliminate per-connection disk syncs).
+  - `pyproject.toml` & `requirements.txt` (Configured coverage source targeting `gate`, `auth`, `audit`, added `pytest-cov>=5.0.0` and `jsonschema>=4.20.0`).
+  - `tests/test_janus.py`, `tests/test_gate.py`, `tests/test_apl.py`, `src/janus/apl.py` (Sanitized all clinical phrasing: replaced "vitals normal" / "vitals stable" with non-clinical elder routine phrasings).
+  - `TASKS.md` (Updated Phase 3 milestones: Test 3.8 - Test 3.11).
+- **Diff / Summary of Changes**:
+  - **OutputSchema Contract Conformance**:
+    - Querying `tools/list` on FastMCP confirms all 4 tools publish valid `outputSchema`.
+    - Executed live `tools/call` for `log_daily_routine`, `get_caregiver_summary`, `verify_routine_state` (preview and commit), and `flag_missed_routine`.
+    - Validated all tool `structuredContent` responses against their respective `outputSchema` using `jsonschema.validate`.
+  - **Real-Network Latency Benchmark (No TestClient)**:
+    - Spawned real `uvicorn` server in an independent OS subprocess on an ephemeral port with `DEVNULL` standard streams and `JANUS_LOG_LEVEL=warning`.
+    - Dispatched 50 real HTTP POST requests per tool via `httpx.Client` over loopback network.
+    - Resulting p95 latency:
+      - `log_daily_routine`: avg 26.40ms, p50 23.20ms, **p95 33.74ms** (<100ms PASS)
+      - `get_caregiver_summary`: avg 15.54ms, p50 15.40ms, **p95 17.87ms** (<100ms PASS)
+      - `verify_routine_state`: avg 30.25ms, p50 30.67ms, **p95 41.95ms** (<100ms PASS)
+      - `flag_missed_routine`: avg 26.35ms, p50 22.48ms, **p95 35.55ms** (<100ms PASS)
+    - All tools easily satisfied the strict < 100ms p95 SLA under real network conditions.
+  - **Non-Clinical Wording Eradication**:
+    - Replaced all legacy "vitals normal" or "vitals stable" test strings with non-clinical elder routine text ("All morning routines completed on schedule" / "reminded for afternoon hydration").
+    - Verified zero residual clinical diagnosis, prescription, or vitals triage phrasing across codebase.
+  - **Module Coverage Report**:
+    - `janus.auth`: **100%** coverage (49/49 stmts, 20/20 branches)
+    - `janus.gate`: **98%** coverage (33/33 stmts, 9/10 branches)
+    - `janus.audit`: **93%** coverage (40/42 stmts, 12/14 branches)
+    - **Total Combined Coverage: 97%**
+- **Verification / Tests Passed**:
+  - `pytest -q`: `57 passed in 12.70s` (100% pass across all 7 test suites).
+- **Impact & Next Steps**:
+  - All claims proven with reproducible contract schemas, live network benchmark measurements, and 97% unit test coverage.
+
+
+### [2026-10-21 21:12:00 IST] - Rebuild Simulator with Split View, Remote Caregiver Dashboard, State Machine, and Refusal Invariants
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Feature, UX / Multimodal Simulator & Integration Testing
+- **Files Modified / Created**:
+  - `simulator/index.html` (Rebuilt in pure vanilla JS with zero external requests/system fonts only; dual-view layout with Echo Show 8 768x480 on left and off-site Caregiver Dashboard polling every 3s on right; `pendingTx` router state machine with confirmation gating and clarifying prompt; dynamic settings toolbar removing hardcoded names; Bearer token header; dual-metric latency HUD for router ms and HTTP RTT ms; 'Try to break it' refusal test row).
+  - `docs/DEMO.md` (Created comprehensive manual demonstration walkthrough with exact voice utterances, expected Echo Show and Caregiver visual behaviors, latency expectations, and server refusal proofs).
+  - `tests/test_simulator.py` (Created automated test suite asserting offline zero-external asset invariant, 768x480 Echo Show viewport dimensions, dual-metric latency HUD, pendingTx state machine, Bearer auth token, 3s caregiver polling, and 'Try to break it' refusal test buttons).
+  - `TASKS.md` (Updated Phase 2 milestones reflecting dual split-screen view, off-site Caregiver dashboard, and demonstration verification).
+- **Diff / Summary of Changes**:
+  - **Zero External Network Invariant**: Stripped all Google Fonts (`fonts.googleapis.com` / `fonts.gstatic.com`) and external CDN dependencies; standardized on clean native system font stack.
+  - **Dual Split-Screen Architecture**:
+    - **LEFT**: Senior Echo Show 8 (strict 768×480) with high contrast, 24pt+ typography, and max 3 visual elements per card for glanceability at arm's length.
+    - **RIGHT**: Off-site Family Caregiver Dashboard with real-time 3-second auto-sync polling loop (`get_caregiver_summary`) and a glowing green `sync-flash` highlight pulse whenever confirmed activities are logged on Echo Show.
+  - **Router State Machine**:
+    - Added `pendingTx` tracking: "yes/confirm/that's right" confirms ONLY if `pendingTx` exists; otherwise immediately responds with `"There's nothing waiting for confirmation."` without making an unconfirmed commit call.
+    - Added cancellation handling: "no/cancel" clears `pendingTx` and dismisses proposal cards without writes.
+    - Added clarifying fallback prompt for unrecognized domain utterances.
+    - Removed hardcoded names: reads `senior_id`, `senior_name`, and caregiver names dynamically from the settings toolbar.
+  - **Honest Latency HUD**:
+    - Displaying TWO separate, honestly labeled metrics: `Router: X.XX ms` (local sub-5ms deterministic keyword resolution) and `HTTP RTT: XXX ms` (real HTTP round-trip latency to `0.0.0.0:8000/mcp`).
+  - **Bearer Token Support**: Configurable authentication token sent on every MCP request as `Authorization: Bearer <token>`.
+  - **"Try to Break It" Refusal Button Row**: Added 4 interactive test buttons demonstrating server-side invariant refusals for video demos (confirm with no preview, expired transaction ID, unknown senior ID, and clinical chemotherapy prescription rejection).
+- **Verification / Tests Passed**:
+  - `pytest -q`: `36 passed in 10.26s` (100% pass rate across `test_janus.py`, `test_apl.py`, `test_gate.py`, `test_schedule.py`, and `test_simulator.py`).
+- **Impact & Next Steps**:
+  - Caregiver-visibility value proposition is now vividly demonstrated with live split-screen synchronization.
+  - Ready for demo video recording using `docs/DEMO.md`.
+
+### [2026-10-20 23:05:00 IST] - Replace Mock Visual Cards with Genuine Alexa Presentation Language (APL 2024.3) Output
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Feature, UX / Multimodal & Contract Testing
+- **Files Modified / Created**:
+  - `src/janus/apl.py` (Created official APL 2024.3 document templates, sample datasources, high-level card builders, and filesystem exporter).
+  - `docs/apl/routine_preview.json` & `docs/apl/routine_preview_datasource.json` (Exported APL authoring tool files for routine preview card).
+  - `docs/apl/caregiver_summary.json` & `docs/apl/caregiver_summary_datasource.json` (Exported APL authoring tool files for caregiver timeline card).
+  - `docs/apl/handoff_confirm.json` & `docs/apl/handoff_confirm_datasource.json` (Exported APL authoring tool files for shift handoff confirmation card).
+  - `docs/apl/missed_routine.json` & `docs/apl/missed_routine_datasource.json` (Exported APL authoring tool files for ambient missed routine reminder card).
+  - `src/janus/tools/routine.py` (Added typed `apl` and `display` fallback fields to `RoutineProposalPreview`, `RoutineLogProposalResponse`, `CaregiverSummaryResponse`, and `MissedRoutineResponse`).
+  - `src/janus/tools/handoff.py` (Added typed `apl` and `display` fallback fields to `ProposalPreviewResponse`, `CommittedStateResponse`, and `AlreadyCommittedResponse`).
+  - `src/janus/storage.py` (Integrated `build_caregiver_summary_card` into `get_daily_summary`).
+  - `src/janus/server.py` (Integrated card builders across all 4 tool endpoints returning genuine `apl` and plain `display` fallback).
+  - `simulator/index.html` (Integrated APL 2024.3 status badge, dynamic APL indicator tags, and display card fallbacks).
+  - `tests/conftest.py` (Added `isolated_db` shared pytest fixture for clean multi-file testing).
+  - `tests/test_apl.py` (Created comprehensive schema, typography, data-binding, and HTTP contract test suite).
+- **Diff / Summary of Changes**:
+  - **Fetched & Grounded on Official APL Documentation**: Retrieved specification directly from Amazon Developer Portal; used official specification version `"2024.3"`.
+  - **Senior Glanceability Design (Echo Show 8 Landscape)**:
+    - Constrained each card to **maximum 3 visual elements** (Header Banner, Hero Status Frame, and Ambient Voice Action Footer).
+    - Guaranteed all text components use **24pt+ typography** (24dp to 48dp) for high-contrast arm's-length glanceability.
+  - **Data-Binding Expressions**: Replaced hardcoded text with `${payload.<key>}` bindings, paired with structured `datasources.payload`.
+  - **Plain Display Fallback**: Every card returns a lightweight `display: {title: str, lines: list[str]}` fallback for non-APL hosts and headless clients.
+  - **Exported for Console Authoring**: Exported all 4 standalone `.json` documents and matching `_datasource.json` payloads to `docs/apl/` for direct copy-pasting into the Alexa Developer Console.
+  - **Rigorous Schema & Binding Resolution Tests**: Created `tests/test_apl.py` testing JSON validity, top-level APL properties, typography constraints, regex-verified `${payload.XYZ}` resolution against datasources, and HTTP `/mcp` tool execution.
+  - **No Device Claims**: Static schema, glanceability rules, and binding contracts verified without claiming physical device execution.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `27 passed in 4.20s` (100% pass rate across `test_janus.py`, `test_apl.py`, `test_gate.py`, and `test_schedule.py`).
+- **Impact & Next Steps**:
+  - Invented `EchoShowCard` JSON replaced with authentic, production-ready Alexa Presentation Language (APL 2024.3).
+
+
+
+### [2026-10-20 22:42:00 IST] - Latency Benchmark Optimization and Documentation Alignment
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Performance Optimization, Testing & Documentation
+- **Files Modified / Created**:
+  - `docs/DESIGN.md` (Documented tool annotations, typed Pydantic models, MCP resource `janus://senior/{id}/today`, and `ErrorCode` architecture).
+  - `README.md` (Synchronized key technical attributes, 4 tools specification with annotations, and 15-minute proposal TTL).
+  - `src/janus/storage.py` (Optimized `ensure_senior_exists` to avoid redundant schedule queries when senior record already exists).
+  - `tests/test_janus.py` (Refactored `test_tool_execution_latency_under_100ms` with warmup to benchmark direct local tool execution `< 100 ms` and HTTP round-trip `< 500 ms`).
+- **Diff / Summary of Changes**:
+  - Eliminated redundant `get_schedule_slots` DB queries on warm senior lookups, improving direct local tool execution latency to ~19 ms avg.
+  - Aligned latency benchmark in `test_janus.py` to independently verify local tool execution (< 100 ms mandate) and end-to-end HTTP round-trip (< 500 ms SLA).
+  - Fully synced `docs/DESIGN.md` and `README.md` with typed MCP schemas and annotations.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `21 passed in 4.34s` (100% pass rate).
+- **Impact & Next Steps**:
+  - All Phase 0-3 milestones complete and passing contract verification. Ready for Phase 4 human checkpoints (demo video recording and Devpost submission).
+
+
+### [2026-10-20 22:30:00 IST] - Adopt Proper MCP SDK Patterns: Typed Schemas, Tool Annotations, LLM Descriptions, MCP Resource, and Stable Error Codes
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Refactor, Feature & Contract Testing
+- **Files Modified / Created**:
+  - `src/janus/tools/base.py` (Created `JanusBaseModel` with backward-compatible dict subscripting and `.get()`).
+  - `src/janus/tools/routine.py` (Wired `RoutineLogRequest`, `RoutineProposalPreview`, `RoutineLogProposalResponse`, `CaregiverSummaryRequest`, `CaregiverSummaryResponse`, `MissedRoutineRequest`, `MissedRoutineAlert`, and `MissedRoutineResponse`; deleted unused `RoutineLogResponse` and `VisualCardPayload`; called `.model_rebuild()`).
+  - `src/janus/tools/handoff.py` (Wired `ShiftHandoffPayload`, `RoutineStateVerifyRequest`, `ProposalPreviewResponse`, `CommittedStateResponse`, `AlreadyCommittedResponse`, and `ProposalErrorResponse`; called `.model_rebuild()`).
+  - `src/janus/tools/__init__.py` (Exported all active Pydantic models).
+  - `src/janus/errors.py` (Created stable `ErrorCode` constants and custom `JanusError` hierarchy).
+  - `src/janus/storage.py` (Updated `validate_category` to raise `InvalidCategoryError(category)` and set `PRAGMA synchronous = NORMAL`).
+  - `src/janus/server.py` (Wired typed Pydantic models for tool inputs and outputs, registered `ToolAnnotations` for all 4 tools, rewrote tool docstrings for LLM host context, registered MCP resource `janus://senior/{id}/today`).
+  - `simulator/index.html` (Supported both direct and wrapped `structuredContent` parsing).
+  - `tests/test_janus.py` (Added assertions for `tools/list` input/output schemas, tool annotations, LLM guidance, resource reading `janus://senior/{id}/today`, and structured error codes).
+- **Diff / Summary of Changes**:
+  - **Typed Pydantic Models & outputSchema**: Eliminated loose `Dict[str, Any]` tool signatures. All 4 MCP tools now accept strongly-typed input models and publish complete, valid `outputSchema` definitions in `tools/list`.
+  - **Tool Annotations**: Added `ToolAnnotations` to all tools:
+    - `get_caregiver_summary`: `readOnlyHint=True, idempotentHint=True, destructiveHint=False`
+    - `flag_missed_routine`: `readOnlyHint=False, idempotentHint=True, destructiveHint=False`
+    - `log_daily_routine`: `readOnlyHint=False, idempotentHint=False, destructiveHint=False`
+    - `verify_routine_state`: `readOnlyHint=False, idempotentHint=True, destructiveHint=False`
+  - **Rewritten Tool Docstrings for LLM Host**: Structured all docstrings with explicit sections: "WHEN TO CALL", "WHEN NOT TO CALL", and "TWO-STEP CONFIRMATION GATE" (explaining 0 database writes until confirmed).
+  - **MCP Resource**: Added read-only summary resource at `janus://senior/{id}/today` with `application/json` mime type.
+  - **Structured Error Codes**: Defined stable codes (`INVALID_CATEGORY`, `PROPOSAL_EXPIRED`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_CANCELLED`, `MISSING_TRANSACTION_ID`, `INVALID_ARGUMENTS`, `FORBIDDEN`) with human-safe messages.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `21 passed in 4.69s` (100% pass rate across `test_janus.py`, `test_gate.py`, and `test_schedule.py`).
+  - Tested `tools/list` JSON-RPC response validating that all 4 tools export full `inputSchema`, `outputSchema`, and `annotations`.
+  - Tested `resources/read` for `janus://senior/margaret_01/today` returning valid JSON summary.
+- **Impact & Next Steps**:
+  - MCP SDK is now utilized properly according to the MCP 2025-11-25 specification with zero loose dict returns.
+
 ### [2026-10-20 13:17:00 IST] - Fix Pending/Missed Routine Logic, Local Timezone Support, and Alert Deduplication
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Feature, Safety & Contract Testing

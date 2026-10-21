@@ -36,11 +36,13 @@ This document tracks all implementation, testing, and submission milestones for 
 ---
 
 ## 🖥️ Phase 2: Web Simulator & Echo Show Visual Card Renderer
-- [x] **Sim 2.1**: Design and build `simulator/index.html` with 768x480px Echo Show card viewport (arm's length dark theme).
-- [x] **Sim 2.2**: Implement local deterministic keyword router (<5ms routing, zero external API costs).
-- [x] **Sim 2.3**: Integrate Web Speech API (`webkitSpeechRecognition` & `speechSynthesis`) for voice conversation.
-- [x] **Sim 2.4**: Add typed text input fallback to bypass iframe `Origin: null` restrictions.
-- [x] **Sim 2.5**: Connect simulator to `POST http://127.0.0.1:8000/mcp` and render real-time visual cards.
+- [x] **Sim 2.1**: Design and build `simulator/index.html` with dual split-screen view: Echo Show 8 (768x480) senior smart screen + off-site caregiver dashboard (zero external CDN/font calls, 100% system fonts).
+- [x] **Sim 2.2**: Implement local deterministic keyword router (<5ms routing, zero external API costs) with `pendingTx` state machine, "yes/confirm" gating, and clarifying fallback prompt.
+- [x] **Sim 2.3**: Integrate Web Speech API (`webkitSpeechRecognition` & `speechSynthesis`) for voice conversation with typed text fallback.
+- [x] **Sim 2.4**: Connect simulator to `POST http://127.0.0.1:8000/mcp` with Bearer auth token input and dual-metric latency HUD (Router ms + HTTP RTT ms).
+- [x] **Sim 2.5**: Off-site caregiver dashboard with 3s auto-sync polling loop and live green sync pulse indicator on confirmed events.
+- [x] **Sim 2.6**: Interactive "Try to break it" refusal test row demonstrating server-side invariants (unconfirmed commit refusal, expired ID, wrong senior, clinical scope violation).
+- [x] **Sim 2.7**: Comprehensive manual demonstration script and verification guide in [`docs/DEMO.md`](docs/DEMO.md).
 
 ---
 
@@ -52,16 +54,22 @@ This document tracks all implementation, testing, and submission milestones for 
 - [x] **Test 3.5**: Validate Streamable HTTP tool discovery (`tools/list`) and invocation (`tools/call`) per MCP spec `2025-11-25`.
 - [x] **Test 3.6**: Add `tests/test_gate.py` covering no-preview commit rejection, expired proposals, replay idempotency, 0-write invariant, non-clinical category enum rejection, and thread concurrency.
 - [x] **Test 3.7**: Add `tests/test_schedule.py` covering schedule slot isolation (breakfast doesn't clear dinner, morning water doesn't clear afternoon slot), IST timezone boundary, alert dedupe, and unconfirmed events isolation.
-
+- [x] **Test 3.8**: Add contract tests per tool verifying published `outputSchema` and validating response conformance using `jsonschema.validate`.
+- [x] **Test 3.9**: Add real-network latency test in `tests/test_real_network_latency.py`: starts uvicorn in an independent OS subprocess on an ephemeral port, executes 50 HTTP POST calls per tool via `httpx`, asserts p95 < 100ms per call, and prints evaluation table (zero TestClient).
+- [x] **Test 3.10**: Non-clinical wording sanitization: eradicate all clinical phrases ("vitals normal") across tests and schemas.
+- [x] **Test 3.11**: Add `pytest --cov` targeting `gate`, `auth`, and `audit` modules, achieving 97% total coverage (auth: 100%, gate: 98%, audit: 93%).
 
 ---
 
 ## 🚀 Phase 4: Submission & Human Checkpoints
 - [x] **Doc 4.1**: Finalize documentation and verify all cross-links across `docs/` and root files.
-- [HUMAN] **Checkpoint 4.2**: Record a 2.5-minute video demonstration covering:
+- [x] **Rel 4.2**: 3-command reviewer quickstart scripts (`scripts/smoke.sh`, `scripts/smoke.ps1`) probing `/health` and MCP `tools/list`.
+- [x] **CI 4.3**: GitHub Actions CI workflow on Python 3.12 (`.github/workflows/ci.yml`).
+- [x] **Doc 4.4**: Rewrite README with only test-proven claims, accurate SDK names, quickstart, architecture diagram, and explicit known limitations.
+- [HUMAN] **Checkpoint 4.5**: Record a 2.5-minute video demonstration covering:
   - Senior ambient voice logging of hydration/meal.
   - Caregiver visual summary card on simulated Echo Show.
   - Caregiver two-step shift handoff with confirmation gate.
-- [HUMAN] **Checkpoint 4.3**: Upload demonstration video to YouTube / Vimeo and copy public link.
-- [HUMAN] **Checkpoint 4.4**: Push clean repository to public GitHub with MIT License.
-- [HUMAN] **Checkpoint 4.5**: Submit project on Devpost with `FRICTION_LOG.md` (+10% bonus) and `PRODUCT_FEEDBACK.md`.
+- [HUMAN] **Checkpoint 4.6**: Upload demonstration video to YouTube / Vimeo and copy public link.
+- [HUMAN] **Checkpoint 4.7**: Push clean repository to public GitHub with MIT License.
+- [HUMAN] **Checkpoint 4.8**: Submit project on Devpost with `FRICTION_LOG.md` (+10% bonus) and `PRODUCT_FEEDBACK.md`.
