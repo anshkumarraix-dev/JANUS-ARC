@@ -1,0 +1,27 @@
+services:
+  janus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: janus-mcp:latest
+    container_name: janus-server
+    ports:
+      - "8000:8000"
+    environment:
+      - JANUS_HOST=0.0.0.0
+      - JANUS_PORT=8000
+      - JANUS_DB_PATH=/app/data/janus.db
+      - JANUS_LOG_LEVEL=info
+    volumes:
+      - janus-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  janus-data:
+    name: janus-db-data
