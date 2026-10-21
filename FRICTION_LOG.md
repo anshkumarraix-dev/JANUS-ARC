@@ -2,7 +2,7 @@
 
 > **Hackathon Submission**: *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*  
 > **Project**: Janus (ElderSync) — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+  
-> **Repository**: [janus-mcp](https://github.com/<YOUR_GITHUB_USER>/janus-mcp)
+> **Repository**: [JANUS-ARC](https://github.com/anshkumarraix-dev/JANUS-ARC)
 
 ---
 

@@ -3,7 +3,7 @@
 [![Build, Ship, Shape: Amazon Developer Hackathon](https://img.shields.io/badge/Hackathon-Amazon%20Developer%20Alexa%2B%20Track-FF9900?logo=amazon&logoColor=white)](https://buildshipshape.devpost.com/)
 [![MCP Spec](https://img.shields.io/badge/MCP%20Spec-2025--11--25-blue)](https://spec.modelcontextprotocol.io/)
 [![Python](https://img.shields.io/badge/Python-3.12%20%7C%203.13%20%7C%203.14-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![CI](https://github.com/<YOUR_GITHUB_USER>/janus-mcp/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
+[![CI](https://github.com/anshkumarraix-dev/JANUS-ARC/actions/workflows/ci.yml/badge.svg)](.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **Janus (ElderSync)** is a self-hosted Model Context Protocol (MCP) server for Alexa+ built on the **official Model Context Protocol Python SDK** (`mcp.server.mcpserver.MCPServer`), **Starlette ASGI**, and **Streamable HTTP**. It bridges the gap between aging seniors living independently and their distributed family caregivers through hands-free ambient voice logging, glanceable visual timeline cards for Echo Show smart screens, and auditable two-step confirmation shift handoffs.
@@ -107,8 +107,8 @@ Reviewers can verify and run Janus end-to-end in 3 commands:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/<YOUR_GITHUB_USER>/janus-mcp.git
-cd janus-mcp
+git clone https://github.com/anshkumarraix-dev/JANUS-ARC.git
+cd JANUS-ARC
 
 # 2. Run the automated smoke test (creates clean venv, installs, runs pytest, probes /health & /mcp)
 bash scripts/smoke.sh

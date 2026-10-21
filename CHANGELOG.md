@@ -29,6 +29,22 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-21 22:45:00 IST] - Configure Official Remote URL: anshkumarraix-dev/JANUS-ARC
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Git Remote & Repository Metadata
+- **Files Modified / Created**:
+  - `README.md` (Updated CI badge, quickstart clone URL, and directory cd to `anshkumarraix-dev/JANUS-ARC`).
+  - `pyproject.toml` (Updated `[project.urls]` Homepage, Repository, and Issues).
+  - `PRODUCT_FEEDBACK.md` & `FRICTION_LOG.md` (Updated official repository link to `https://github.com/anshkumarraix-dev/JANUS-ARC`).
+- **Diff / Summary of Changes**:
+  - Replaced all temporary `<YOUR_GITHUB_USER>` placeholders with `anshkumarraix-dev/JANUS-ARC`.
+  - Configured Git remote `origin` to `https://github.com/anshkumarraix-dev/JANUS-ARC.git`.
+  - Prepared repository branch for clean upstream push.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `58 passed in 19.07s` (100% pass across all test suites).
+- **Impact & Next Steps**:
+  - Ready to push committed history to GitHub remote.
+
 ### [2026-10-21 22:25:00 IST] - Complete Git Packaging, Logical Commits, Placeholder Standardization, and Clone Verification
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Git Hygiene, CI/CD, Documentation & Packaging
