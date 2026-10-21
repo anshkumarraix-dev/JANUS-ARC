@@ -3,28 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Janus (ElderSync) — Alexa+ Echo Show Smart Screen Simulator</title>
-  <meta name="description" content="Simulated Alexa+ Echo Show smart display dashboard for Janus (ElderSync) FastMCP v2 server over Streamable HTTP.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Janus (ElderSync) — Alexa+ Echo Show Smart Screen & Caregiver Simulator</title>
+  <meta name="description" content="Dual-view simulator: Echo Show 8 (768x480) senior smart screen and real-time off-site caregiver dashboard over FastMCP v2 Streamable HTTP.">
   <style>
     :root {
       --bg-dark: #07090E;
-      --screen-bg: #0D111A;
-      --card-bg: rgba(22, 28, 42, 0.85);
+      --bg-panel: #0D121F;
+      --screen-bg: #0A0E17;
+      --card-bg: rgba(18, 24, 38, 0.88);
       --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-active: rgba(6, 182, 212, 0.4);
       --accent-cyan: #06B6D4;
       --accent-cyan-glow: rgba(6, 182, 212, 0.35);
       --accent-blue: #3B82F6;
+      --accent-blue-glow: rgba(59, 130, 246, 0.25);
       --accent-green: #10B981;
-      --accent-green-glow: rgba(16, 185, 129, 0.3);
+      --accent-green-glow: rgba(16, 185, 129, 0.35);
       --accent-amber: #F59E0B;
-      --accent-amber-glow: rgba(245, 158, 11, 0.3);
+      --accent-amber-glow: rgba(245, 158, 11, 0.35);
       --accent-rose: #F43F5E;
+      --accent-rose-glow: rgba(244, 63, 94, 0.35);
+      --accent-purple: #8B5CF6;
       --text-main: #F3F4F6;
       --text-muted: #94A3B8;
+      --text-dim: #64748B;
       --alexa-glow: #00CAFF;
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
     * {
@@ -36,100 +40,242 @@
     body {
       background-color: var(--bg-dark);
       background-image: 
-        radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.12) 0px, transparent 50%);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.10) 0px, transparent 45%),
+        radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 45%);
+      font-family: var(--font-stack);
       color: var(--text-main);
       min-height: 100vh;
+      padding: 16px 20px 32px 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
     }
 
-    /* Container Header */
+    /* Top Global Header */
     .app-header {
-      text-align: center;
-      margin-bottom: 20px;
-      max-width: 800px;
+      width: 100%;
+      max-width: 1540px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      margin-bottom: 14px;
     }
 
-    .app-header h1 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 6px;
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
-    .app-header p {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    .status-badge-row {
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-top: 8px;
+      font-weight: 800;
+      font-size: 18px;
+      color: #FFFFFF;
+      box-shadow: 0 0 16px var(--accent-cyan-glow);
     }
 
-    .pill {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border: 1px solid var(--card-border);
-      background: rgba(255, 255, 255, 0.04);
+    .brand-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #FFFFFF;
+    }
+
+    .brand-text p {
+      font-size: 12px;
       color: var(--text-muted);
     }
 
-    .pill-green {
-      color: var(--accent-green);
+    /* Latency HUD (TWO separate numbers) */
+    .hud-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .hud-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+    }
+
+    .hud-value {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .hud-router {
+      border-color: rgba(6, 182, 212, 0.3);
+      background: rgba(6, 182, 212, 0.08);
+    }
+    .hud-router .hud-value {
+      color: var(--accent-cyan);
+    }
+
+    .hud-http {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.08);
+    }
+    .hud-http .hud-value {
+      color: #93C5FD;
+    }
+
+    .hud-status-online {
       border-color: rgba(16, 185, 129, 0.3);
-      background: rgba(16, 185, 129, 0.1);
+      color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.08);
     }
 
     .dot {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: currentColor;
     }
 
-    .pulse-dot {
-      animation: pulse 2s infinite;
+    .pulse {
+      animation: pulseAnim 2s infinite;
     }
 
-    @keyframes pulse {
+    @keyframes pulseAnim {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+      50% { opacity: 0.35; transform: scale(0.85); }
+    }
+
+    /* Dynamic Settings Panel */
+    .settings-bar {
+      width: 100%;
+      max-width: 1540px;
+      background: rgba(13, 18, 31, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+
+    .settings-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .settings-label {
+      color: var(--text-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .settings-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: #FFFFFF;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 4px 8px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .settings-input:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    .settings-input-token {
+      width: 190px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+    }
+
+    /* Main Split View Container */
+    .split-container {
+      width: 100%;
+      max-width: 1540px;
+      display: grid;
+      grid-template-columns: 808px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1380px) {
+      .split-container {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+    }
+
+    /* =====================================================================
+       LEFT COLUMN: Senior's Echo Show (768x480)
+       ===================================================================== */
+    .senior-column {
+      width: 808px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .column-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .column-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     /* Hardware Echo Show Chassis */
-    .echo-device-frame {
-      background: linear-gradient(145deg, #1E222D, #0A0D14);
+    .echo-chassis {
+      background: linear-gradient(145deg, #1C202C, #0B0E16);
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 28px;
-      padding: 20px;
+      padding: 19px;
       box-shadow: 
-        0 25px 60px -15px rgba(0, 0, 0, 0.8),
-        0 0 40px -10px rgba(6, 182, 212, 0.15);
+        0 25px 60px -15px rgba(0, 0, 0, 0.85),
+        0 0 45px -10px rgba(6, 182, 212, 0.12);
       position: relative;
     }
 
-    /* Screen Bezel Dot (Camera) */
     .camera-lens {
       position: absolute;
-      top: 9px;
+      top: 8px;
       left: 50%;
       transform: translateX(-50%);
       width: 6px;
@@ -139,12 +285,12 @@
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
-    /* Viewport: Strict 768x480 Echo Show aspect */
+    /* Screen Viewport: STRICT 768x480 Echo Show 8 Landscape */
     .screen-viewport {
       width: 768px;
       height: 480px;
       background: var(--screen-bg);
-      border-radius: 16px;
+      border-radius: 14px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -152,263 +298,237 @@
       border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Smart Screen Top Bar */
+    /* Screen Header (Minimal, Glancable) */
     .screen-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 14px 20px 8px 20px;
+      padding: 12px 18px 8px 18px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(10, 14, 23, 0.6);
     }
 
-    .senior-info {
+    .senior-meta {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .senior-avatar {
+    .senior-avatar-circle {
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #06B6D4, #3B82F6);
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
       font-weight: 700;
-      color: white;
+      font-size: 13px;
+      color: #FFFFFF;
     }
 
-    .senior-text h2 {
+    .senior-name-text {
       font-size: 14px;
       font-weight: 600;
-      color: var(--text-main);
+      color: #FFFFFF;
     }
 
-    .senior-text p {
+    .senior-subtitle-text {
       font-size: 11px;
       color: var(--text-muted);
     }
 
-    .screen-clock {
+    .screen-time-block {
       text-align: right;
     }
 
-    .clock-time {
-      font-family: 'Outfit', sans-serif;
+    .screen-time-text {
       font-size: 18px;
       font-weight: 700;
       color: #FFFFFF;
+      font-variant-numeric: tabular-nums;
     }
 
-    .clock-date {
+    .screen-date-text {
       font-size: 11px;
       color: var(--text-muted);
     }
 
-    /* Screen Main Content Area */
+    /* Screen Body (High-contrast, Max 3 visual elements per card, 24pt+ text) */
     .screen-body {
       flex: 1;
-      padding: 16px 20px;
-      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* APL High-Contrast Card (Senior Arm's Length: 24pt+ / 32px primary text) */
+    .apl-card {
+      background: var(--card-bg);
+      border: 2px solid var(--card-border);
+      border-radius: 16px;
+      padding: 22px 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
-    }
-
-    /* Echo Show Visual Card (Arm's-length glanceable) */
-    .echo-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
       transition: all 0.3s ease;
-      backdrop-filter: blur(12px);
     }
 
-    .echo-card-header {
+    .card-top-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
     }
 
-    .card-title-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .card-icon {
-      font-size: 20px;
-    }
-
-    .card-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 16px;
-      font-weight: 600;
-      color: #FFFFFF;
-    }
-
-    .card-badge {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 600;
-    }
-
-    .badge-cyan { background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.4); }
-    .badge-amber { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.4); }
-    .badge-green { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.4); }
-
-    /* Timeline Stats Grid */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .stat-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 10px;
-      padding: 10px;
-      text-align: center;
-    }
-
-    .stat-val {
-      font-family: 'Outfit', sans-serif;
-      font-size: 22px;
-      font-weight: 700;
-      color: #FFFFFF;
-    }
-
-    .stat-lbl {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    /* Checklist & Events */
-    .card-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-
-    .card-list-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 10px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.02);
-      font-size: 12px;
-    }
-
-    .list-item-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Confirmation Banner (Safety Gate) */
-    .confirmation-gate-card {
-      border: 1px solid rgba(245, 158, 11, 0.5);
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(20, 24, 33, 0.9));
-      box-shadow: 0 0 30px rgba(245, 158, 11, 0.15);
-    }
-
-    .confirm-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .btn {
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .btn-confirm {
-      background: var(--accent-green);
-      color: #FFFFFF;
-      box-shadow: 0 2px 10px var(--accent-green-glow);
-    }
-
-    .btn-confirm:hover {
-      background: #059669;
-    }
-
-    .btn-cancel {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-main);
-    }
-
-    .btn-cancel:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    /* Alexa Glowing Voice Ring (Echo Show Lightbar) */
-    .alexa-lightbar {
-      height: 4px;
-      width: 100%;
-      background: transparent;
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      transition: all 0.4s ease;
-    }
-
-    .alexa-lightbar.active {
-      background: linear-gradient(90deg, #00CAFF, #0055FF, #00CAFF);
-      background-size: 200% 100%;
-      box-shadow: 0 -4px 16px var(--alexa-glow);
-      animation: lightbarShift 1.5s infinite linear;
-    }
-
-    @keyframes lightbarShift {
-      0% { background-position: 0% 50%; }
-      100% { background-position: 200% 50%; }
-    }
-
-    /* Alexa Spoken Response Footer Bar */
-    .screen-spoken-bar {
-      background: rgba(10, 14, 23, 0.95);
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 10px 16px;
+    .card-title-lockup {
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 12px;
-      min-height: 44px;
     }
 
-    .alexa-icon {
-      width: 20px;
-      height: 20px;
+    .card-icon-big {
+      font-size: 34px;
+      line-height: 1;
+    }
+
+    /* 24pt+ primary title for senior readability */
+    .card-h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: #FFFFFF;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-amber {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .badge-green {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .badge-blue {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93C5FD;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .badge-rose {
+      background: rgba(244, 63, 94, 0.2);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+    }
+
+    /* High contrast 20px+ subtitle / details */
+    .card-body-text {
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: #E2E8F0;
+    }
+
+    .card-subdetail {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Safety Confirmation Gate Card on Echo Show */
+    .card-proposal {
+      border-color: rgba(245, 158, 11, 0.6);
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(18, 24, 38, 0.95));
+      box-shadow: 0 0 35px rgba(245, 158, 11, 0.15);
+    }
+
+    .card-committed {
+      border-color: rgba(16, 185, 129, 0.6);
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(18, 24, 38, 0.95));
+      box-shadow: 0 0 35px rgba(16, 185, 129, 0.15);
+    }
+
+    .card-missed {
+      border-color: rgba(244, 63, 94, 0.6);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.12), rgba(18, 24, 38, 0.95));
+      box-shadow: 0 0 35px rgba(244, 63, 94, 0.15);
+    }
+
+    .card-actions-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 6px;
+    }
+
+    .action-btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .action-btn-confirm {
+      background: var(--accent-green);
+      color: #FFFFFF;
+      box-shadow: 0 2px 14px var(--accent-green-glow);
+    }
+
+    .action-btn-confirm:hover {
+      background: #059669;
+      transform: translateY(-1px);
+    }
+
+    .action-btn-cancel {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .action-btn-cancel:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Alexa Spoken Audio Feedback Bar */
+    .screen-spoken-bar {
+      background: rgba(8, 11, 18, 0.98);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      min-height: 48px;
+    }
+
+    .alexa-avatar-dot {
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       background: var(--alexa-glow);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #000;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 11px;
       flex-shrink: 0;
     }
@@ -417,54 +537,70 @@
       color: #E2E8F0;
       flex: 1;
       line-height: 1.4;
+      font-weight: 500;
     }
 
-    /* Input & Control Panel */
-    .control-panel {
-      width: 768px;
-      margin-top: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+    /* Lightbar Animation (Echo Show Cyan Ring) */
+    .alexa-lightbar {
+      height: 4px;
+      width: 100%;
+      background: transparent;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      transition: all 0.3s ease;
     }
 
-    .input-bar {
+    .alexa-lightbar.active {
+      background: linear-gradient(90deg, #00CAFF, #0055FF, #00CAFF);
+      background-size: 200% 100%;
+      box-shadow: 0 -4px 16px var(--alexa-glow);
+      animation: lightbarShift 1.4s infinite linear;
+    }
+
+    @keyframes lightbarShift {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    /* Utterance Input Bar */
+    .input-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: var(--card-bg);
+      gap: 8px;
+      background: var(--bg-panel);
       border: 1px solid var(--card-border);
       border-radius: 12px;
-      padding: 6px 8px;
+      padding: 6px 10px;
     }
 
-    .mic-button {
+    .mic-btn {
       width: 40px;
       height: 40px;
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: #FFFFFF;
+      font-size: 18px;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: pointer;
-      font-size: 18px;
       transition: all 0.2s;
     }
 
-    .mic-button:hover {
+    .mic-btn:hover {
       background: rgba(6, 182, 212, 0.2);
       border-color: var(--accent-cyan);
     }
 
-    .mic-button.listening {
+    .mic-btn.listening {
       background: var(--accent-rose);
-      animation: pulse 1s infinite;
       border-color: transparent;
+      animation: pulseAnim 1s infinite;
     }
 
-    .text-input {
+    .utterance-input {
       flex: 1;
       background: transparent;
       border: none;
@@ -472,31 +608,31 @@
       font-family: inherit;
       font-size: 14px;
       outline: none;
-      padding: 0 8px;
+      padding: 4px 6px;
     }
 
-    .text-input::placeholder {
-      color: #64748B;
+    .utterance-input::placeholder {
+      color: var(--text-dim);
     }
 
-    .send-button {
-      padding: 8px 18px;
+    .send-btn {
+      padding: 9px 18px;
       background: var(--accent-blue);
       border: none;
       border-radius: 8px;
       color: #FFFFFF;
-      font-weight: 600;
       font-size: 13px;
+      font-weight: 700;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s;
     }
 
-    .send-button:hover {
+    .send-btn:hover {
       background: #2563EB;
     }
 
     /* Preset Chips */
-    .chip-row {
+    .chip-wrap {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
@@ -509,6 +645,7 @@
       padding: 5px 12px;
       border-radius: 9999px;
       font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -516,32 +653,389 @@
     .chip:hover {
       background: rgba(6, 182, 212, 0.12);
       border-color: rgba(6, 182, 212, 0.4);
-      color: var(--text-main);
+      color: #FFFFFF;
     }
 
-    /* Debug RPC Drawer */
-    .debug-box {
-      width: 768px;
-      margin-top: 14px;
-      background: rgba(10, 14, 23, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    /* "Try to Break It" Refusal Button Row */
+    .break-row {
+      background: rgba(244, 63, 94, 0.05);
+      border: 1px dashed rgba(244, 63, 94, 0.3);
       border-radius: 10px;
-      padding: 10px 14px;
-      font-family: monospace;
-      font-size: 11px;
-      color: #94A3B8;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .debug-header {
+    .break-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent-rose);
       display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .break-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .break-btn {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #FECDD3;
+      padding: 5px 11px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .break-btn:hover {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: var(--accent-rose);
+      color: #FFFFFF;
+    }
+
+    /* =====================================================================
+       RIGHT COLUMN: Off-Site Caregiver Dashboard (Live 3s Polling)
+       ===================================================================== */
+    .caregiver-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .caregiver-card-frame {
+      background: var(--bg-panel);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+
+    /* Pulse animation when new events sync */
+    .caregiver-card-frame.sync-flash {
+      border-color: var(--accent-green);
+      box-shadow: 0 0 35px var(--accent-green-glow);
+    }
+
+    .caregiver-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .caregiver-headline {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .caregiver-badge-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .caregiver-headline h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .caregiver-headline p {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .sync-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sync-status-pill {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-green);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .sync-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sync-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+    }
+
+    /* Live Update Banner (Flashing when senior logs) */
+    .sync-alert-banner {
+      display: none;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--accent-green);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #A7F3D0;
+      align-items: center;
+      justify-content: space-between;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Daily Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 12px 10px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .metric-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .metric-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: #FFFFFF;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* Routine Schedule Slots Matrix */
+    .slots-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+    }
+
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .slots-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .slot-pill {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .slot-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    .slot-title {
+      font-weight: 600;
+      color: #E2E8F0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .slot-window {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    .slot-status-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      flex-shrink: 0;
+    }
+
+    .tag-completed { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+    .tag-due { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+    .tag-upcoming { background: rgba(59, 130, 246, 0.15); color: #93C5FD; }
+    .tag-overdue { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); }
+
+    /* Live Care Activity Ledger */
+    .activity-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ledger-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 4px;
+    }
+
+    .ledger-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      gap: 8px;
+    }
+
+    .ledger-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ledger-icon {
+      font-size: 16px;
+    }
+
+    .ledger-actor {
+      font-size: 10px;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .ledger-time {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Shift Status Footer in Caregiver Frame */
+    .shift-status-box {
+      background: rgba(139, 92, 246, 0.06);
+      border: 1px solid rgba(139, 92, 246, 0.2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+    }
+
+    .shift-label {
+      color: #DDD6FE;
+      font-weight: 600;
+    }
+
+    /* Debug Drawer */
+    .debug-drawer {
+      width: 100%;
+      max-width: 1540px;
+      margin-top: 14px;
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .debug-toggle {
+      display: flex;
+      align-items: center;
       justify-content: space-between;
       cursor: pointer;
       font-weight: 600;
     }
 
-    .debug-content {
-      margin-top: 8px;
-      max-height: 120px;
+    .debug-body {
+      margin-top: 10px;
+      max-height: 160px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-all;
@@ -549,202 +1043,397 @@
       display: none;
     }
 
-    .debug-content.open {
+    .debug-body.open {
       display: block;
     }
   </style>
 </head>
 <body>
 
-  <!-- Page Header -->
+  <!-- Top Global Header -->
   <header class="app-header">
-    <h1>Janus (ElderSync) — Alexa+ Echo Show Simulator</h1>
-    <p>Simulating voice-first senior routine logging and two-step caregiver shift handoffs over FastMCP v2 Streamable HTTP</p>
-    <div class="status-badge-row">
-      <span class="pill pill-green" id="server-status-pill">
-        <span class="dot pulse-dot"></span>
-        <span id="server-status-text">Server: 0.0.0.0:8000/mcp</span>
-      </span>
-      <span class="pill" id="latency-pill">Latency: -- ms</span>
-      <span class="pill">MCP Spec: 2025-11-25</span>
+    <div class="brand-title">
+      <div class="brand-logo" aria-hidden="true">J</div>
+      <div class="brand-text">
+        <h1>Janus (ElderSync) — Multimodal Alexa+ & Caregiver Sync Simulator</h1>
+        <p>Real-time dual view: Voice-first senior Echo Show 8 smart screen + Remote off-site caregiver dashboard</p>
+      </div>
+    </div>
+
+    <!-- Latency HUD: TWO separate, honestly labeled numbers -->
+    <div class="hud-bar">
+      <div class="hud-chip hud-router" title="Local JavaScript deterministic keyword & regex intent router resolution time">
+        <span>⚡ Router:</span>
+        <span class="hud-value" id="hud-router-ms">0.00 ms</span>
+      </div>
+      <div class="hud-chip hud-http" title="Real HTTP Streamable HTTP POST round-trip latency to FastMCP v2 server">
+        <span>🌐 HTTP RTT:</span>
+        <span class="hud-value" id="hud-http-ms">-- ms</span>
+      </div>
+      <div class="hud-chip hud-status-online" id="hud-server-pill">
+        <span class="dot pulse"></span>
+        <span id="hud-server-text">Server: Online</span>
+      </div>
     </div>
   </header>
 
-  <!-- Hardware Chassis (768x480 Echo Show Viewport) -->
-  <main class="echo-device-frame" id="echo-chassis">
-    <div class="camera-lens" aria-hidden="true"></div>
+  <!-- Dynamic Settings & Profile Toolbar -->
+  <section class="settings-bar" aria-label="Simulator Configuration">
+    <div class="settings-group">
+      <span class="settings-label">Senior ID:</span>
+      <input type="text" class="settings-input" id="setting-senior-id" value="margaret_01" style="width: 105px;" onchange="onSettingChange()" />
 
-    <div class="screen-viewport" id="screen-viewport">
-      <!-- Screen Header -->
-      <div class="screen-header">
-        <div class="senior-info">
-          <div class="senior-avatar">MV</div>
-          <div class="senior-text">
-            <h2 id="senior-display-name">Margaret Vance (Age 78)</h2>
-            <p id="senior-display-status">Senior Household Member • Active</p>
-          </div>
-        </div>
-        <div class="screen-clock">
-          <div class="clock-time" id="clock-time">10:45 AM</div>
-          <div class="clock-date" id="clock-date">Tuesday, Oct 20</div>
-        </div>
-      </div>
+      <span class="settings-label">Senior Name:</span>
+      <input type="text" class="settings-input" id="setting-senior-name" value="Margaret Vance" style="width: 130px;" onchange="onSettingChange()" />
 
-      <!-- Main Visual Display Canvas -->
-      <div class="screen-body" id="screen-body">
-        <!-- Default Landing Timeline Card -->
-        <div class="echo-card" id="timeline-card">
-          <div class="echo-card-header">
-            <div class="card-title-group">
-              <span class="card-icon">📋</span>
-              <span class="card-title">Daily Care Timeline</span>
-            </div>
-            <span class="card-badge badge-cyan" id="card-date-badge">Today</span>
-          </div>
+      <span class="settings-label">Departing Caregiver:</span>
+      <input type="text" class="settings-input" id="setting-departing" value="David" style="width: 80px;" />
 
-          <div class="stats-grid">
-            <div class="stat-box">
-              <div class="stat-val" id="stat-hydration">0</div>
-              <div class="stat-lbl">Hydration</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-val" id="stat-meals">0</div>
-              <div class="stat-lbl">Meals</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-val" id="stat-vitamins">No</div>
-              <div class="stat-lbl">Vitamins</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-val" id="stat-mobility">0</div>
-              <div class="stat-lbl">Walks</div>
-            </div>
-          </div>
-
-          <div class="card-list" id="activity-log-list">
-            <div class="card-list-item" style="color: var(--text-muted); justify-content: center;">
-              Speak or type a command below to log daily routines or check status.
-            </div>
-          </div>
-        </div>
-
-        <!-- Dynamic Slot for Confirmation Gates or Alerts -->
-        <div id="dynamic-slot"></div>
-      </div>
-
-      <!-- Alexa Spoken Audio Feedback Bar -->
-      <div class="screen-spoken-bar">
-        <div class="alexa-icon">A</div>
-        <div class="alexa-speech-text" id="alexa-speech-text">
-          "Janus is active. Say 'I drank water', 'Show caregiver summary', or 'Hand off shift to Sarah'."
-        </div>
-      </div>
-
-      <!-- Lightbar Animation -->
-      <div class="alexa-lightbar" id="alexa-lightbar"></div>
-    </div>
-  </main>
-
-  <!-- Utterance Input & Preset Chips -->
-  <section class="control-panel">
-    <form class="input-bar" id="utterance-form" onsubmit="event.preventDefault(); submitUtterance();">
-      <button type="button" class="mic-button" id="mic-btn" onclick="toggleMicrophone()" title="Toggle Web Speech recognition">
-        🎤
-      </button>
-      <input 
-        type="text" 
-        class="text-input" 
-        id="utterance-input" 
-        placeholder="Speak or type: 'I drank a glass of water', 'Show summary', 'Hand off shift to Sarah'..." 
-        autocomplete="off"
-      />
-      <button type="submit" class="send-button" id="send-btn">Send Turn</button>
-    </form>
-
-    <!-- Preset Utterance Chips for 1-Click Evaluation -->
-    <div class="chip-row">
-      <span class="chip" onclick="handleChipClick('I drank 2 glasses of water')">💧 Log 2 Glasses Water</span>
-      <span class="chip" onclick="handleChipClick('Finished morning oatmeal and tea')">🥣 Log Breakfast</span>
-      <span class="chip" onclick="handleChipClick('Margaret took her morning vitamins')">💊 Log Vitamins</span>
-      <span class="chip" onclick="handleChipClick('Walked 20 minutes in the garden')">🚶 Log Garden Walk</span>
-      <span class="chip" onclick="handleChipClick('Show caregiver summary')">📋 Caregiver Summary</span>
-      <span class="chip" onclick="handleChipClick('Hand off shift from David to Sarah')">🤝 Shift Handoff (Preview)</span>
-      <span class="chip" onclick="handleChipClick('Confirm shift handoff')">✅ Confirm Handoff</span>
-      <span class="chip" onclick="handleChipClick('Check missed routines')">⚠️ Check Missed Routines</span>
+      <span class="settings-label">Incoming Caregiver:</span>
+      <input type="text" class="settings-input" id="setting-incoming" value="Sarah" style="width: 80px;" />
     </div>
 
-    <!-- Live JSON-RPC Debug Drawer -->
-    <div class="debug-box">
-      <div class="debug-header" onclick="toggleDebug()">
-        <span>📡 MCP Streamable HTTP JSON-RPC Inspector</span>
-        <span id="debug-toggle-indicator">[+ Expand]</span>
-      </div>
-      <div class="debug-content" id="debug-content">No MCP requests dispatched yet.</div>
+    <div class="settings-group">
+      <span class="settings-label">Bearer Token:</span>
+      <input type="text" class="settings-input settings-input-token" id="setting-token" value="janus-demo-token-alexa-plus-2026" title="Sent as 'Authorization: Bearer <token>' in every MCP request" />
+
+      <span class="settings-label">Endpoint:</span>
+      <input type="text" class="settings-input" id="setting-endpoint" value="http://127.0.0.1:8000/mcp" style="width: 175px;" />
     </div>
   </section>
 
-  <!-- Simulator Logic -->
-  <script>
-    // Configuration
-    const MCP_ENDPOINT = 'http://127.0.0.1:8000/mcp';
-    const SENIOR_ID = 'margaret_01';
+  <!-- Main Split-Screen Container -->
+  <main class="split-container">
 
-    // State Variables
-    let pendingTransactionId = null;
-    let pendingHandoffPayload = null;
+    <!-- ===================================================================
+         LEFT COLUMN: Senior's Echo Show (768x480)
+         =================================================================== -->
+    <div class="senior-column">
+      <div class="column-title-bar">
+        <div class="column-title">
+          <span>🏠 Echo Show 8 Landscape (Senior Smart Screen)</span>
+        </div>
+        <span class="badge badge-blue">APL 2024.3 • 768 × 480</span>
+      </div>
+
+      <!-- Hardware Echo Show 8 Chassis -->
+      <div class="echo-chassis">
+        <div class="camera-lens" aria-hidden="true"></div>
+
+        <!-- Strict 768x480 Echo Show Viewport -->
+        <div class="screen-viewport" id="echo-viewport">
+          <!-- Screen Header -->
+          <div class="screen-header">
+            <div class="senior-meta">
+              <div class="senior-avatar-circle" id="senior-avatar">MV</div>
+              <div>
+                <div class="senior-name-text" id="senior-display-name">Margaret Vance</div>
+                <div class="senior-subtitle-text" id="senior-display-status">Senior Household Member • Active</div>
+              </div>
+            </div>
+            <div class="screen-time-block">
+              <div class="screen-time-text" id="screen-clock-time">10:45 AM</div>
+              <div class="screen-date-text" id="screen-clock-date">Tuesday, Oct 21</div>
+            </div>
+          </div>
+
+          <!-- Screen Body: High contrast, 24pt+ text, max 3 visual elements per card -->
+          <div class="screen-body" id="screen-body">
+            <!-- Dynamic APL Card Rendered Here -->
+            <div class="apl-card" id="active-card">
+              <div class="card-top-row">
+                <div class="card-title-lockup">
+                  <span class="card-icon-big">📋</span>
+                  <div class="card-h1">Daily Care Timeline</div>
+                </div>
+                <span class="badge badge-blue">Echo Show 8</span>
+              </div>
+              <div class="card-body-text" id="card-primary-text">
+                Good morning, Margaret. Your daily routine schedule is ready.
+              </div>
+              <div class="card-subdetail" id="card-secondary-text">
+                Say "I drank water", "Finished breakfast", or "Show summary" to record activities.
+              </div>
+            </div>
+          </div>
+
+          <!-- Alexa Spoken Audio Feedback Bar -->
+          <div class="screen-spoken-bar">
+            <div class="alexa-avatar-dot">A</div>
+            <div class="alexa-speech-text" id="alexa-speech-text">
+              "Janus is active. Say 'I drank water', 'Show caregiver summary', or 'Hand off shift'."
+            </div>
+          </div>
+
+          <!-- Echo Show Glowing Lightbar -->
+          <div class="alexa-lightbar" id="alexa-lightbar"></div>
+        </div>
+      </div>
+
+      <!-- Utterance Input Bar (Speech + Text) -->
+      <form class="input-row" id="utterance-form" onsubmit="event.preventDefault(); submitUtterance();">
+        <button type="button" class="mic-btn" id="mic-btn" onclick="toggleMicrophone()" title="Toggle Web Speech recognition">
+          🎤
+        </button>
+        <input 
+          type="text" 
+          class="utterance-input" 
+          id="utterance-input" 
+          placeholder="Speak or type: 'I drank a glass of water', 'Hand off shift', 'yes', 'no'..." 
+          autocomplete="off"
+        />
+        <button type="submit" class="send-btn" id="send-btn">Send Turn</button>
+      </form>
+
+      <!-- Preset Utterance Chips for 1-Click Evaluation -->
+      <div class="chip-wrap">
+        <span class="chip" onclick="handleChipClick('I drank 2 glasses of water')">💧 Log 2 Glasses Water</span>
+        <span class="chip" onclick="handleChipClick('Finished morning oatmeal and tea')">🥣 Log Breakfast</span>
+        <span class="chip" onclick="handleChipClick('Took morning vitamins')">💊 Log Vitamins</span>
+        <span class="chip" onclick="handleChipClick('Walked 20 minutes on the porch')">🚶 Log Porch Walk</span>
+        <span class="chip" onclick="handleChipClick('Show caregiver summary')">📋 Caregiver Summary</span>
+        <span class="chip" onclick="handleChipClick('Hand off shift')">🤝 Shift Handoff (Preview)</span>
+        <span class="chip" onclick="handleChipClick('yes')">✅ Confirm ("Yes")</span>
+        <span class="chip" onclick="handleChipClick('no')">❌ Cancel ("No")</span>
+        <span class="chip" onclick="handleChipClick('Check missed routines')">⚠️ Check Missed Routines</span>
+      </div>
+
+      <!-- "Try to Break It" Refusal Button Row -->
+      <section class="break-row" aria-label="Safety Invariants Test Panel">
+        <div class="break-header">
+          <span>🚨 Try to Break It (Server-Side Refusal Proofs for Demo Video)</span>
+        </div>
+        <div class="break-buttons">
+          <button type="button" class="break-btn" onclick="testBreakConfirmNoPreview()" title="Dispatches confirm=true without a pending proposal to prove MISSING_TRANSACTION_ID refusal">
+            1. Confirm With No Preview
+          </button>
+          <button type="button" class="break-btn" onclick="testBreakExpiredTx()" title="Dispatches confirm=true with non-existent or expired transaction ID">
+            2. Expired / Invalid TX ID
+          </button>
+          <button type="button" class="break-btn" onclick="testBreakWrongSenior()" title="Queries summary for unknown senior ID">
+            3. Unknown Senior ID
+          </button>
+          <button type="button" class="break-btn" onclick="testBreakClinicalViolation()" title="Attempts clinical chemotherapy prescription logging to verify non-clinical rejection">
+            4. Clinical Scope Violation
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================================================================
+         RIGHT COLUMN: Off-Site Remote Caregiver Dashboard
+         =================================================================== -->
+    <div class="caregiver-column">
+      <div class="column-title-bar">
+        <div class="column-title">
+          <span>📱 Off-Site Caregiver Dashboard (Synchronized Remote View)</span>
+        </div>
+        <span class="badge badge-green">Live Sync: 3s</span>
+      </div>
+
+      <div class="caregiver-card-frame" id="caregiver-frame">
+        <!-- Caregiver Portal Header -->
+        <div class="caregiver-header">
+          <div class="caregiver-headline">
+            <div class="caregiver-badge-icon">🛡️</div>
+            <div>
+              <h2 id="cg-senior-header">Margaret Vance — Care Ledger</h2>
+              <p>Remote family caregiver synchronization</p>
+            </div>
+          </div>
+
+          <div class="sync-controls">
+            <span class="sync-status-pill" id="cg-sync-pill">
+              <span class="dot pulse"></span>
+              <span id="cg-sync-status-text">Polling 3s</span>
+            </span>
+            <button type="button" class="sync-btn" onclick="pollCaregiverSummary()" title="Manual Instant Fetch">🔄 Sync Now</button>
+          </div>
+        </div>
+
+        <!-- Live Sync Flash Alert Banner -->
+        <div class="sync-alert-banner" id="cg-sync-alert">
+          <span>⚡ Live Update Synced from Echo Show!</span>
+          <span style="font-size: 11px; opacity: 0.8;" id="cg-sync-time">Just now</span>
+        </div>
+
+        <!-- Daily Metrics Summary -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-val" id="metric-hydration">0</div>
+            <div class="metric-label">Hydration</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="metric-meals">0</div>
+            <div class="metric-label">Meals</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="metric-vitamins" style="color: var(--accent-amber);">Pending</div>
+            <div class="metric-label">Vitamins</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-val" id="metric-walks">0</div>
+            <div class="metric-label">Walks</div>
+          </div>
+        </div>
+
+        <!-- Schedule Slots Status Matrix -->
+        <div class="slots-section">
+          <div class="section-title-row">
+            <span class="section-title">Today's Routine Slot Windows</span>
+            <span style="font-size: 10px; color: var(--text-dim);" id="slots-count-text">8 Slots</span>
+          </div>
+          <div class="slots-grid" id="schedule-slots-grid">
+            <div class="slot-pill"><span style="color: var(--text-dim);">Loading routine slots...</span></div>
+          </div>
+        </div>
+
+        <!-- Care Activity Chronological Feed -->
+        <div class="activity-section">
+          <div class="section-title-row">
+            <span class="section-title">Confirmed Care Activity Feed</span>
+            <span style="font-size: 10px; color: var(--text-dim);" id="feed-count-text">0 Events</span>
+          </div>
+          <div class="ledger-list" id="ledger-feed-list">
+            <div style="padding: 12px; text-align: center; color: var(--text-dim); font-size: 12px;">
+              No confirmed activities logged today. As the senior speaks on Echo Show, confirmed logs appear here.
+            </div>
+          </div>
+        </div>
+
+        <!-- Shift Handoff Status Footer -->
+        <div class="shift-status-box">
+          <div>
+            <span class="shift-label">Active Care Shift:</span>
+            <span style="color: #FFFFFF; font-weight: 700; margin-left: 4px;" id="shift-caregiver-display">David</span>
+          </div>
+          <div style="color: var(--text-dim);" id="shift-last-updated">
+            Last check: Ready
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Debug Inspector Drawer -->
+  <section class="debug-drawer">
+    <div class="debug-toggle" onclick="toggleDebugDrawer()">
+      <span>📡 FastMCP v2 Streamable HTTP JSON-RPC Inspector</span>
+      <span id="debug-drawer-arrow">[+ Expand Payload]</span>
+    </div>
+    <div class="debug-body" id="debug-drawer-body">No requests dispatched yet.</div>
+  </section>
+
+  <!-- Simulator Logic (Pure Vanilla JS, 0 External Dependencies) -->
+  <script>
+    // State Machine
+    let pendingTx = null; // { transactionId, actionType, seniorId, details, payload }
+    let lastKnownEventsCount = -1;
+    let autoPollTimer = null;
     let isListening = false;
-    let recognition = null;
+    let speechRecognition = null;
+
+    // Helper: Read dynamic settings
+    function getSetting(key) {
+      switch(key) {
+        case 'senior_id': return document.getElementById('setting-senior-id').value.trim() || 'margaret_01';
+        case 'senior_name': return document.getElementById('setting-senior-name').value.trim() || 'Margaret Vance';
+        case 'departing': return document.getElementById('setting-departing').value.trim() || 'David';
+        case 'incoming': return document.getElementById('setting-incoming').value.trim() || 'Sarah';
+        case 'endpoint': return document.getElementById('setting-endpoint').value.trim() || 'http://127.0.0.1:8000/mcp';
+        case 'token': return document.getElementById('setting-token').value.trim() || 'janus-demo-token-alexa-plus-2026';
+        default: return '';
+      }
+    }
+
+    function onSettingChange() {
+      const name = getSetting('senior_name');
+      document.getElementById('senior-display-name').textContent = name;
+      document.getElementById('cg-senior-header').textContent = `${name} — Care Ledger`;
+      
+      const initials = name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'SR';
+      document.getElementById('senior-avatar').textContent = initials;
+      
+      pollCaregiverSummary();
+    }
 
     // Clock Updater
     function updateClock() {
       const now = new Date();
-      document.getElementById('clock-time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      document.getElementById('clock-date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+      document.getElementById('screen-clock-time').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('screen-clock-date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Initialize Web Speech Recognition
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
+    // Text to Speech and Visual Lightbar
+    function setAlexaSpeaking(active, text) {
+      const lightbar = document.getElementById('alexa-lightbar');
+      const speechElem = document.getElementById('alexa-speech-text');
 
-      recognition.onstart = () => {
+      if (active) {
+        lightbar.classList.add('active');
+      } else {
+        lightbar.classList.remove('active');
+      }
+
+      if (text) {
+        speechElem.textContent = text;
+        if ('speechSynthesis' in window && !isListening && text.length > 3) {
+          try {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            window.speechSynthesis.speak(utterance);
+          } catch(e) {
+            console.warn("Speech synthesis unavailable:", e);
+          }
+        }
+      }
+    }
+
+    // Web Speech API Integration
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+      speechRecognition = new SpeechClass();
+      speechRecognition.continuous = false;
+      speechRecognition.interimResults = false;
+      speechRecognition.lang = 'en-US';
+
+      speechRecognition.onstart = () => {
         isListening = true;
         document.getElementById('mic-btn').classList.add('listening');
         setAlexaSpeaking(true, "Listening to ambient voice...");
       };
 
-      recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+      speechRecognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
         document.getElementById('utterance-input').value = transcript;
         submitUtterance();
       };
 
-      recognition.onerror = (e) => {
+      speechRecognition.onerror = (e) => {
         console.warn('SpeechRecognition error:', e);
         stopListening();
-        setAlexaSpeaking(false, "Microphone recognition error. Please use the typed input box.");
+        setAlexaSpeaking(false, "Microphone recognition error. Please type your utterance into the input box.");
       };
 
-      recognition.onend = () => {
+      speechRecognition.onend = () => {
         stopListening();
       };
     }
 
     function toggleMicrophone() {
-      if (!recognition) {
-        alert("Web Speech API is not supported in this browser. Please type your utterance into the input box.");
+      if (!speechRecognition) {
+        alert("Web Speech API is not supported in this browser. Please type into the input bar.");
         return;
       }
       if (isListening) {
-        recognition.stop();
+        speechRecognition.stop();
       } else {
         try {
-          recognition.start();
+          speechRecognition.start();
         } catch (err) {
           console.error(err);
         }
@@ -756,134 +1445,155 @@
       document.getElementById('mic-btn').classList.remove('listening');
     }
 
-    function setAlexaSpeaking(active, text) {
-      const lightbar = document.getElementById('alexa-lightbar');
-      const speechElem = document.getElementById('alexa-speech-text');
-      
-      if (active) {
-        lightbar.classList.add('active');
-      } else {
-        lightbar.classList.remove('active');
-      }
-
-      if (text) {
-        speechElem.textContent = text;
-        // Text-to-speech synthesis if available
-        if ('speechSynthesis' in window && !isListening && text.length > 5) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 1.05;
-          window.speechSynthesis.speak(utterance);
-        }
-      }
-    }
-
     function handleChipClick(text) {
       document.getElementById('utterance-input').value = text;
       submitUtterance();
     }
 
-    // Deterministic Keyword Intent Router (ADR-002: <5ms resolution, zero API costs)
+    // =========================================================================
+    // DETERMINISTIC KEYWORD & REGEX INTENT ROUTER (Sub-5ms, Zero API cost)
+    // =========================================================================
     function routeUtterance(rawText) {
-      const text = rawText.toLowerCase().trim();
+      const t0 = performance.now();
+      const norm = rawText.toLowerCase().trim();
+      const seniorId = getSetting('senior_id');
+      const seniorName = getSetting('senior_name');
+      const departing = getSetting('departing');
+      const incoming = getSetting('incoming');
 
-      // 1. Two-Step Confirmation Gate (Voice Confirmation)
-      if (text.includes('confirm') || text === 'yes' || text === 'yes confirm') {
-        if (pendingTransactionId) {
+      let decision = null;
+
+      // 1. Two-Step Confirmation Intent: "yes", "confirm", "that's right"
+      const isConfirm = /^(yes|confirm|that's right|confirm proposal|confirm handoff|yes confirm|yes please|right|correct|agree)$/i.test(norm)
+        || norm === "yes"
+        || norm === "confirm"
+        || norm === "that's right"
+        || norm.startsWith("yes ")
+        || norm.startsWith("confirm ");
+
+      if (isConfirm) {
+        if (!pendingTx) {
+          const routerMs = performance.now() - t0;
           return {
-            tool: 'verify_routine_state',
-            args: {
-              confirm: true,
-              transaction_id: pendingTransactionId
-            }
+            handledLocally: true,
+            routerMs,
+            message: "There's nothing waiting for confirmation."
           };
         }
-        return {
+
+        decision = {
           tool: 'verify_routine_state',
           args: {
-            senior_id: SENIOR_ID,
-            action_type: 'shift_handoff',
-            payload: pendingHandoffPayload || {
-              departing_caregiver: 'David',
-              incoming_caregiver: 'Sarah',
-              handoff_notes: 'Confirmed shift handoff via voice consent.'
-            },
-            confirm: true
+            confirm: true,
+            transaction_id: pendingTx.transactionId
           }
         };
       }
 
-      // 2. Shift Handoff Preview
-      if (text.includes('hand off') || text.includes('handoff') || text.includes('shift')) {
-        let departing = 'David';
-        let incoming = 'Sarah';
-        if (text.includes('sarah to david')) {
-          departing = 'Sarah'; incoming = 'David';
-        }
-        pendingHandoffPayload = {
-          departing_caregiver: departing,
-          incoming_caregiver: incoming,
-          handoff_notes: 'Margaret completed morning routines; reminded for afternoon hydration.'
-        };
+      // 2. Cancellation Intent: "no", "cancel", "nevermind", "stop", "abort"
+      else if (/^(no|cancel|nevermind|stop|abort|dismiss|don't|do not)$/i.test(norm) || norm.includes('cancel')) {
+        const hadTx = !!pendingTx;
+        pendingTx = null;
+        const routerMs = performance.now() - t0;
         return {
+          handledLocally: true,
+          routerMs,
+          cancelled: true,
+          message: hadTx ? "Action cancelled. Nothing was written." : "Cancelled."
+        };
+      }
+
+      // 3. Shift Handoff Preview Intent
+      else if (norm.includes('hand off') || norm.includes('handoff') || norm.includes('shift')) {
+        decision = {
           tool: 'verify_routine_state',
           args: {
-            senior_id: SENIOR_ID,
+            senior_id: seniorId,
             action_type: 'shift_handoff',
-            payload: pendingHandoffPayload,
+            payload: {
+              departing_caregiver: departing,
+              incoming_caregiver: incoming,
+              handoff_notes: `${seniorName} completed scheduled routines; reminder noted for next shift.`
+            },
             confirm: false
           }
         };
       }
 
-      // 3. Caregiver Summary & Timeline Query
-      if (text.includes('summary') || text.includes('timeline') || text.includes('what did') || text.includes('status')) {
-        return {
+      // 4. Caregiver Summary Query Intent
+      else if (norm.includes('summary') || norm.includes('timeline') || norm.includes('status') || norm.includes('how is')) {
+        decision = {
           tool: 'get_caregiver_summary',
           args: {
-            senior_id: SENIOR_ID
+            senior_id: seniorId
           }
         };
       }
 
-      // 4. Missed Routine Check
-      if (text.includes('missed') || text.includes('forget') || text.includes('check-in')) {
-        return {
+      // 5. Missed Routine Check Intent
+      else if (norm.includes('missed') || norm.includes('forget') || norm.includes('check-in') || norm.includes('overdue')) {
+        decision = {
           tool: 'flag_missed_routine',
           args: {
-            senior_id: SENIOR_ID,
+            senior_id: seniorId,
             routine_name: 'Afternoon Hydration',
             scheduled_time: '14:00',
-            urgency_level: 'high'
+            urgency_level: 'medium'
           }
         };
       }
 
-      // 5. Daily Routine Logging (Proposes routine with category enum)
-      let rtype = 'wellness';
-      if (text.includes('water') || text.includes('drank') || text.includes('hydration') || text.includes('glass')) {
-        rtype = 'hydration';
-      } else if (text.includes('oatmeal') || text.includes('breakfast') || text.includes('lunch') || text.includes('dinner') || text.includes('ate') || text.includes('meal')) {
-        rtype = 'meal';
-      } else if (text.includes('vitamin') || text.includes('supplement')) {
-        rtype = 'vitamins';
-      } else if (text.includes('walk') || text.includes('garden') || text.includes('steps') || text.includes('porch') || text.includes('activity')) {
-        rtype = 'activity';
+      // 6. Routine Logging Intent (Proposes routine with category enum)
+      else if (norm.includes('water') || norm.includes('drank') || norm.includes('hydration') || norm.includes('glass') ||
+               norm.includes('breakfast') || norm.includes('lunch') || norm.includes('dinner') || norm.includes('meal') || norm.includes('oatmeal') || norm.includes('ate') ||
+               norm.includes('vitamin') || norm.includes('supplement') || norm.includes('pill') ||
+               norm.includes('walk') || norm.includes('garden') || norm.includes('porch') || norm.includes('exercise') || norm.includes('activity')) {
+        
+        let cat = 'wellness';
+        if (norm.includes('water') || norm.includes('drank') || norm.includes('hydration') || norm.includes('glass')) {
+          cat = 'hydration';
+        } else if (norm.includes('breakfast') || norm.includes('lunch') || norm.includes('dinner') || norm.includes('meal') || norm.includes('oatmeal') || norm.includes('ate')) {
+          cat = 'meal';
+        } else if (norm.includes('vitamin') || norm.includes('supplement') || norm.includes('pill')) {
+          cat = 'vitamins';
+        } else if (norm.includes('walk') || norm.includes('garden') || norm.includes('porch') || norm.includes('exercise') || norm.includes('activity')) {
+          cat = 'activity';
+        }
+
+        decision = {
+          tool: 'log_daily_routine',
+          args: {
+            senior_id: seniorId,
+            category: cat,
+            details: rawText,
+            logged_by: 'senior_voice'
+          }
+        };
       }
 
-      return {
-        tool: 'log_daily_routine',
-        args: {
-          senior_id: SENIOR_ID,
-          category: rtype,
-          details: rawText,
-          logged_by: text.includes('david') || text.includes('sarah') ? 'caregiver' : 'senior_voice'
-        }
-      };
+      // 7. Unrecognized Text -> Clarifying Prompt
+      else {
+        const routerMs = performance.now() - t0;
+        return {
+          handledLocally: true,
+          routerMs,
+          clarifying: true,
+          message: "I didn't quite catch that. You can say 'I drank a glass of water', 'Log breakfast', 'Hand off shift', or 'Show summary'."
+        };
+      }
+
+      const routerMs = performance.now() - t0;
+      decision.routerMs = routerMs;
+      return decision;
     }
 
-    // Call FastMCP v2 Server over Streamable HTTP (spec 2025-11-25)
-    async function callMCPTool(toolName, toolArgs) {
+    // =========================================================================
+    // DISPATCH MCP TOOL OVER STREAMABLE HTTP (MCP Spec 2025-11-25)
+    // =========================================================================
+    async function callMCPTool(toolName, toolArgs, options = {}) {
+      const endpoint = getSetting('endpoint');
+      const token = getSetting('token');
+
       const payload = {
         jsonrpc: '2.0',
         id: Date.now(),
@@ -895,261 +1605,570 @@
       };
 
       const startTime = performance.now();
-      setAlexaSpeaking(true, `Querying Janus FastMCP (${toolName})...`);
+      if (!options.silent) {
+        setAlexaSpeaking(true, `Connecting to Janus FastMCP (${toolName})...`);
+      }
 
       try {
-        const response = await fetch(MCP_ENDPOINT, {
+        const headers = {
+          'Content-Type': 'application/json',
+          'MCP-Protocol-Version': '2025-11-25'
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'MCP-Protocol-Version': '2025-11-25'
-          },
+          headers: headers,
           body: JSON.stringify(payload)
         });
 
         const elapsedMs = Math.round(performance.now() - startTime);
-        document.getElementById('latency-pill').textContent = `Latency: ${elapsedMs} ms`;
-
-        if (!response.ok) {
-          throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
-        }
+        document.getElementById('hud-http-ms').textContent = `${elapsedMs} ms`;
+        document.getElementById('hud-server-pill').className = 'hud-chip hud-status-online';
+        document.getElementById('hud-server-text').textContent = 'Server: Online';
 
         const data = await response.json();
-        logDebug(payload, data, elapsedMs);
+        logDebug(payload, data, elapsedMs, headers);
 
         if (data.error) {
           throw new Error(data.error.message || 'JSON-RPC Error');
         }
 
-        // FastMCP v2 wraps tool results in structuredContent.result
-        const result = data.result?.structuredContent?.result || data.result;
-        handleToolSuccess(toolName, result);
+        const result = data.result?.structuredContent?.result || data.result?.structuredContent || data.result;
+
+        if (options.onSuccess) {
+          options.onSuccess(result);
+        } else {
+          handleToolSuccess(toolName, result);
+        }
+
+        return result;
 
       } catch (err) {
-        console.error('MCP Error:', err);
-        setAlexaSpeaking(false, `Connection failure: Could not reach Janus MCP at ${MCP_ENDPOINT}. Please verify 'python src/janus/server.py' is running.`);
-        document.getElementById('server-status-pill').classList.remove('pill-green');
-        document.getElementById('server-status-pill').style.borderColor = 'var(--accent-rose)';
-        document.getElementById('server-status-text').textContent = 'Server Offline';
+        const elapsedMs = Math.round(performance.now() - startTime);
+        document.getElementById('hud-http-ms').textContent = `${elapsedMs} ms`;
+        document.getElementById('hud-server-pill').className = 'hud-chip';
+        document.getElementById('hud-server-pill').style.borderColor = 'var(--accent-rose)';
+        document.getElementById('hud-server-pill').style.color = 'var(--accent-rose)';
+        document.getElementById('hud-server-text').textContent = 'Connection Error';
+
+        console.error('MCP Tool Call Error:', err);
+        if (!options.silent) {
+          renderErrorCard(toolName, err.message);
+          setAlexaSpeaking(false, `Request failed: ${err.message}`);
+        }
+        logDebug(payload, { error: err.message }, elapsedMs, { Authorization: `Bearer ${token}` });
       }
     }
 
-    // Process and Render Tool Result on the Echo Show Dashboard
+    // =========================================================================
+    // ECHO SHOW SMART SCREEN RENDERERS (APL 2024.3, 24pt+ text, max 3 elements)
+    // =========================================================================
     function handleToolSuccess(toolName, result) {
-      document.getElementById('server-status-pill').classList.add('pill-green');
-      document.getElementById('server-status-text').textContent = 'Server: Online (8000/mcp)';
-
-      const dynamicSlot = document.getElementById('dynamic-slot');
-
       if (toolName === 'log_daily_routine') {
         const txId = result.transaction_id;
-        pendingTransactionId = txId;
-        dynamicSlot.innerHTML = `
-          <div class="echo-card confirmation-gate-card">
-            <div class="echo-card-header">
-              <div class="card-title-group">
-                <span class="card-icon">🛡️</span>
-                <span class="card-title">${result.echo_show_card?.title || 'Proposed Routine'}</span>
-              </div>
-              <span class="card-badge badge-amber">Proposal Preview (0 Writes)</span>
-            </div>
-            <p style="font-size: 13px; color: #FEF08A;">${result.notes || result.preview?.details || 'Routine pending confirmation'}</p>
-            <div style="font-size: 11px; color: #CBD5E1; margin-top: 6px;">
-              Proposed by <strong>${result.logged_by || 'senior_voice'}</strong> • Expires in 5 min • ID: <code style="color: #67E8F9;">${txId}</code>
-            </div>
-            <div class="confirm-actions">
-              <button class="btn btn-confirm" onclick="confirmProposal('${txId}')">✅ Confirm & Write to Ledger</button>
-              <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Cancel</button>
-            </div>
-          </div>
-        `;
-        setAlexaSpeaking(false, result.spoken_prompt);
-      }
+        const details = result.preview?.details || result.notes || 'Routine completion';
+        const cat = result.category || result.routine_type || 'Activity';
 
-      else if (toolName === 'get_caregiver_summary') {
-        dynamicSlot.innerHTML = '';
-        renderSummaryCard(result);
-        const speech = `Here is Margaret's summary for today: ${result.total_events} activities recorded. ${result.pending_routines?.length || 0} routines still pending.`;
-        setAlexaSpeaking(false, speech);
+        pendingTx = {
+          transactionId: txId,
+          actionType: 'routine_log',
+          seniorId: result.senior_id,
+          details: details,
+          category: cat
+        };
+
+        renderProposalCard(
+          'Proposed: ' + cat.toUpperCase(),
+          details,
+          result.spoken_prompt,
+          txId
+        );
+        setAlexaSpeaking(false, result.spoken_prompt);
       }
 
       else if (toolName === 'verify_routine_state') {
         if (result.status === 'PROPOSAL_PREVIEW') {
           const txId = result.transaction_id;
-          pendingTransactionId = txId;
-          dynamicSlot.innerHTML = `
-            <div class="echo-card confirmation-gate-card">
-              <div class="echo-card-header">
-                <div class="card-title-group">
-                  <span class="card-icon">🛡️</span>
-                  <span class="card-title">Confirmation Gate: Shift Handoff</span>
-                </div>
-                <span class="card-badge badge-amber">Proposal Preview (0 Writes)</span>
-              </div>
-              <p style="font-size: 13px; color: #FEF08A; line-height: 1.4;">${result.preview_summary}</p>
-              <div style="font-size: 11px; color: #CBD5E1; margin-top: 6px;">
-                <strong>Pending Items:</strong> ${result.routine_snapshot?.pending_routines?.join(', ') || 'None'}
-              </div>
-              <div class="confirm-actions">
-                <button class="btn btn-confirm" onclick="confirmProposal('${txId}')">✅ Confirm Handoff to ${result.proposed_payload?.incoming_caregiver || 'Sarah'}</button>
-                <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Cancel</button>
-              </div>
-            </div>
-          `;
+          pendingTx = {
+            transactionId: txId,
+            actionType: 'shift_handoff',
+            seniorId: result.senior_id,
+            details: result.preview_summary,
+            payload: result.proposed_payload
+          };
+
+          renderProposalCard(
+            'Shift Handoff Proposal',
+            result.preview_summary || 'Caregiver shift handoff ready for verbal confirmation.',
+            result.spoken_prompt,
+            txId
+          );
           setAlexaSpeaking(false, result.spoken_prompt);
-        } else if (result.status === 'COMMITTED') {
-          dynamicSlot.innerHTML = `
-            <div class="echo-card" style="border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1);">
-              <div class="echo-card-header">
-                <div class="card-title-group">
-                  <span class="card-icon">🤝</span>
-                  <span class="card-title">${result.echo_show_card?.title || 'Committed to Ledger'}</span>
-                </div>
-                <span class="card-badge badge-green">Committed to SQLite</span>
-              </div>
-              <p style="font-size: 13px; color: #FFFFFF;">${result.echo_show_card?.notes || result.echo_show_card?.body || 'Confirmed and recorded in SQLite.'}</p>
-              <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-                Result ID: <strong>#${result.result_id}</strong> • Transaction: <code style="color: #67E8F9;">${result.transaction_id}</code>
-              </div>
-            </div>
-          `;
-          pendingTransactionId = null;
-          pendingHandoffPayload = null;
+        }
+        else if (result.status === 'COMMITTED') {
+          pendingTx = null;
+          const isHandoff = result.action_type === 'shift_handoff';
+          const title = isHandoff ? 'Shift Handoff Confirmed' : 'Routine Recorded';
+          const body = result.spoken_response || 'Successfully committed to SQLite care ledger.';
+          renderCommittedCard(title, body, result.transaction_id, result.result_id);
           setAlexaSpeaking(false, result.spoken_response);
-          setTimeout(() => refreshSummary(), 1200);
-        } else if (result.status === 'ALREADY_COMMITTED') {
-          dynamicSlot.innerHTML = `
-            <div class="echo-card" style="border-color: rgba(59, 130, 246, 0.5); background: rgba(59, 130, 246, 0.1);">
-              <div class="echo-card-header">
-                <div class="card-title-group">
-                  <span class="card-icon">ℹ️</span>
-                  <span class="card-title">Already Committed (Idempotent)</span>
-                </div>
-                <span class="card-badge badge-blue">0 Additional Writes</span>
-              </div>
-              <p style="font-size: 13px; color: #E2E8F0;">${result.message}</p>
-            </div>
-          `;
-          pendingTransactionId = null;
-          setAlexaSpeaking(false, "This proposal was already committed.");
+
+          // Trigger immediate caregiver refresh to demonstrate sync
+          setTimeout(() => pollCaregiverSummary(true), 400);
+        }
+        else if (result.status === 'ALREADY_COMMITTED') {
+          pendingTx = null;
+          renderCommittedCard('Already Recorded', result.message || 'This proposal was already recorded.', result.transaction_id);
+          setAlexaSpeaking(false, "This was already recorded.");
+        }
+        else if (result.status === 'error') {
+          pendingTx = null;
+          renderRefusalCard(result.error_code || 'REFUSAL', result.message || 'Operation refused.');
+          setAlexaSpeaking(false, result.message || "Operation refused.");
         }
       }
 
+      else if (toolName === 'get_caregiver_summary') {
+        renderSummaryOnEchoShow(result);
+        const speech = `Margaret's summary for today: ${result.total_events} activities recorded.`;
+        setAlexaSpeaking(false, speech);
+      }
+
       else if (toolName === 'flag_missed_routine') {
-        const alert = result.alert_payload;
-        dynamicSlot.innerHTML = `
-          <div class="echo-card" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08);">
-            <div class="echo-card-header">
-              <div class="card-title-group">
-                <span class="card-icon">🔔</span>
-                <span class="card-title">${alert.echo_show_banner?.title}</span>
-              </div>
-              <span class="card-badge badge-amber">${result.urgency_level.toUpperCase()} Priority</span>
-            </div>
-            <p style="font-size: 13px; color: #FEF08A;">${alert.voice_prompt}</p>
-            <div class="confirm-actions">
-              <button class="btn btn-confirm" onclick="handleChipClick('I drank water now')">${alert.echo_show_banner?.action_button || 'Log Now'}</button>
-              <button class="btn btn-cancel" onclick="dismissDynamicSlot()">Dismiss</button>
-            </div>
-          </div>
-        `;
-        setAlexaSpeaking(false, alert.voice_prompt);
+        const isMissed = result.is_missed;
+        const banner = result.alert_payload?.echo_show_banner || {};
+        const title = banner.title || (isMissed ? 'Routine Check-in' : 'Routines Current');
+        const text = result.alert_payload?.voice_prompt || 'All routines up to date.';
+        renderMissedRoutineCard(title, text, isMissed);
+        setAlexaSpeaking(false, text);
       }
     }
 
-    // Render Timeline Card metrics and recent log rows
-    function renderSummaryCard(data) {
-      const stats = data.visual_card?.stats || {};
-      document.getElementById('stat-hydration').textContent = stats.hydration_entries || 0;
-      document.getElementById('stat-meals').textContent = stats.meals_count || 0;
-      document.getElementById('stat-vitamins').textContent = stats.vitamins_completed ? 'Yes' : 'Pending';
-      document.getElementById('stat-vitamins').style.color = stats.vitamins_completed ? 'var(--accent-green)' : 'var(--accent-amber)';
-      document.getElementById('stat-mobility').textContent = stats.mobility_entries || 0;
+    // Render Read-Only Proposal Preview (Amber Card, 24pt+ text)
+    function renderProposalCard(title, bodyText, voicePrompt, txId) {
+      const container = document.getElementById('screen-body');
+      container.innerHTML = `
+        <div class="apl-card card-proposal">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">🛡️</span>
+              <div class="card-h1">${escapeHtml(title)}</div>
+            </div>
+            <span class="badge badge-amber">Proposal Preview (0 Writes)</span>
+          </div>
 
-      const listElem = document.getElementById('activity-log-list');
-      if (!data.events || data.events.length === 0) {
-        listElem.innerHTML = '<div class="card-list-item" style="color: var(--text-muted); justify-content: center;">No activities logged yet today.</div>';
+          <div class="card-body-text">${escapeHtml(bodyText)}</div>
+
+          <div class="card-subdetail">
+            Pending verbal consent • TX: <code style="color: var(--accent-cyan); font-weight: 700;">${escapeHtml(txId)}</code>
+          </div>
+
+          <div class="card-actions-row">
+            <button class="action-btn action-btn-confirm" onclick="confirmCurrentProposal()">
+              ✅ Confirm ("Yes")
+            </button>
+            <button class="action-btn action-btn-cancel" onclick="cancelCurrentProposal()">
+              ❌ Cancel ("No")
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Atomic Committed Card (Green Card)
+    function renderCommittedCard(title, bodyText, txId, resultId) {
+      const container = document.getElementById('screen-body');
+      container.innerHTML = `
+        <div class="apl-card card-committed">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">✅</span>
+              <div class="card-h1">${escapeHtml(title)}</div>
+            </div>
+            <span class="badge badge-green">Committed (1 Write)</span>
+          </div>
+
+          <div class="card-body-text">${escapeHtml(bodyText)}</div>
+
+          <div class="card-subdetail">
+            Recorded in SQLite ledger • Result #${resultId || 'OK'} • <code style="color: #67E8F9;">${escapeHtml(txId || '')}</code>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Missed Routine Alert Card
+    function renderMissedRoutineCard(title, text, isMissed) {
+      const container = document.getElementById('screen-body');
+      const badgeClass = isMissed ? 'badge-rose' : 'badge-green';
+      const badgeText = isMissed ? 'Check-in Due' : 'All Clear';
+      const cardClass = isMissed ? 'card-missed' : 'card-committed';
+
+      container.innerHTML = `
+        <div class="apl-card ${cardClass}">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">${isMissed ? '🔔' : '✨'}</span>
+              <div class="card-h1">${escapeHtml(title)}</div>
+            </div>
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+
+          <div class="card-body-text">${escapeHtml(text)}</div>
+
+          <div class="card-actions-row">
+            ${isMissed ? '<button class="action-btn action-btn-confirm" onclick="handleChipClick(\'I drank water now\')">Log Routine Now</button>' : ''}
+            <button class="action-btn action-btn-cancel" onclick="dismissToDefaultSummary()">Dismiss</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Refusal / Break Demonstration Card
+    function renderRefusalCard(errorCode, message) {
+      const container = document.getElementById('screen-body');
+      container.innerHTML = `
+        <div class="apl-card card-missed" style="border-color: var(--accent-rose);">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">🚫</span>
+              <div class="card-h1">Server Refusal: ${escapeHtml(String(errorCode))}</div>
+            </div>
+            <span class="badge badge-rose">0 Database Writes</span>
+          </div>
+
+          <div class="card-body-text" style="color: #FECDD3;">${escapeHtml(message)}</div>
+
+          <div class="card-subdetail">
+            Verified invariant: Janus refused to mutate ledger without meeting safety preconditions.
+          </div>
+
+          <div class="card-actions-row">
+            <button class="action-btn action-btn-cancel" onclick="dismissToDefaultSummary()">Return to Timeline</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Error Card for Connection/Server Exceptions
+    function renderErrorCard(tool, msg) {
+      const container = document.getElementById('screen-body');
+      container.innerHTML = `
+        <div class="apl-card" style="border-color: var(--accent-rose);">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">⚠️</span>
+              <div class="card-h1">Connection Failure</div>
+            </div>
+            <span class="badge badge-rose">Offline</span>
+          </div>
+          <div class="card-body-text" style="color: #FECDD3;">
+            Could not reach Janus MCP at <code>${getSetting('endpoint')}</code>. Please verify 'janus-server' is running.
+          </div>
+          <div class="card-subdetail">${escapeHtml(msg)}</div>
+        </div>
+      `;
+    }
+
+    // Render Default Summary on Echo Show
+    function renderSummaryOnEchoShow(data) {
+      const stats = data.visual_card?.stats || {};
+      const container = document.getElementById('screen-body');
+      container.innerHTML = `
+        <div class="apl-card">
+          <div class="card-top-row">
+            <div class="card-title-lockup">
+              <span class="card-icon-big">📋</span>
+              <div class="card-h1">Daily Care Summary</div>
+            </div>
+            <span class="badge badge-blue">Echo Show 8</span>
+          </div>
+
+          <div class="card-body-text">
+            <strong>${stats.hydration_entries || 0}</strong> water logs • <strong>${stats.meals_count || 0}</strong> meals • <strong>${stats.mobility_entries || 0}</strong> walks.
+          </div>
+
+          <div class="card-subdetail">
+            ${stats.vitamins_completed ? '✅ Morning vitamins completed.' : '⚠️ Morning vitamins still pending.'}
+          </div>
+        </div>
+      `;
+    }
+
+    function dismissToDefaultSummary() {
+      pollCaregiverSummary();
+    }
+
+    function confirmCurrentProposal() {
+      if (pendingTx) {
+        callMCPTool('verify_routine_state', {
+          confirm: true,
+          transaction_id: pendingTx.transactionId
+        });
+      } else {
+        setAlexaSpeaking(false, "There's nothing waiting for confirmation.");
+      }
+    }
+
+    function cancelCurrentProposal() {
+      pendingTx = null;
+      dismissToDefaultSummary();
+      setAlexaSpeaking(false, "Action cancelled. Nothing was written.");
+    }
+
+    // =========================================================================
+    // SUBMIT UTTERANCE WORKFLOW (State machine & honest latency breakdown)
+    // =========================================================================
+    function submitUtterance() {
+      const input = document.getElementById('utterance-input');
+      const rawText = input.value.trim();
+      if (!rawText) return;
+
+      const routing = routeUtterance(rawText);
+      input.value = '';
+
+      // Update Router Latency HUD honestly
+      document.getElementById('hud-router-ms').textContent = `${routing.routerMs.toFixed(2)} ms`;
+
+      if (routing.handledLocally) {
+        setAlexaSpeaking(false, routing.message);
+        if (routing.cancelled) {
+          dismissToDefaultSummary();
+        } else if (routing.clarifying) {
+          // Keep active screen, update speech bubble
+        } else {
+          // "There's nothing waiting for confirmation."
+          renderProposalCard("No Pending Proposal", routing.message, routing.message, "NONE");
+        }
         return;
       }
 
-      listElem.innerHTML = data.events.slice(-4).map(e => `
-        <div class="card-list-item">
-          <div class="list-item-left">
-            <span>${getIcon(e.routine_type)}</span>
-            <strong>${e.routine_type.toUpperCase()}</strong>: ${e.value || e.notes || 'Completed'}
-          </div>
-          <span style="color: var(--text-muted);">${new Date(e.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
-        </div>
-      `).join('');
+      callMCPTool(routing.tool, routing.args);
     }
 
-    function getIcon(rtype) {
-      switch(rtype?.toLowerCase()) {
+    // =========================================================================
+    // CAREGIVER DASHBOARD POLLING & VISUAL SYNCHRONIZATION
+    // =========================================================================
+    async function pollCaregiverSummary(isImmediate = false) {
+      const seniorId = getSetting('senior_id');
+
+      const data = await callMCPTool('get_caregiver_summary', { senior_id: seniorId }, { silent: true });
+      if (!data) return;
+
+      renderCaregiverDashboard(data, isImmediate);
+    }
+
+    function renderCaregiverDashboard(data, forceFlash = false) {
+      const stats = data.visual_card?.stats || {};
+      const events = data.events || [];
+      const slots = data.schedule_slots || [];
+
+      // Detect changes to flash live sync banner
+      const eventsCount = events.length;
+      const countChanged = lastKnownEventsCount !== -1 && eventsCount !== lastKnownEventsCount;
+      lastKnownEventsCount = eventsCount;
+
+      if (countChanged || forceFlash) {
+        triggerSyncFlash();
+      }
+
+      // Update Metrics
+      document.getElementById('metric-hydration').textContent = stats.hydration_entries || 0;
+      document.getElementById('metric-meals').textContent = stats.meals_count || 0;
+      
+      const vitElem = document.getElementById('metric-vitamins');
+      if (stats.vitamins_completed) {
+        vitElem.textContent = 'Done';
+        vitElem.style.color = 'var(--accent-green)';
+      } else {
+        vitElem.textContent = 'Pending';
+        vitElem.style.color = 'var(--accent-amber)';
+      }
+
+      document.getElementById('metric-walks').textContent = stats.mobility_entries || 0;
+
+      // Update Schedule Slots
+      const slotsGrid = document.getElementById('schedule-slots-grid');
+      document.getElementById('slots-count-text').textContent = `${slots.length} Slots`;
+
+      if (slots.length > 0) {
+        slotsGrid.innerHTML = slots.map(s => {
+          const status = s.status || 'upcoming';
+          const tagClass = 'tag-' + status;
+          return `
+            <div class="slot-pill">
+              <div class="slot-left">
+                <span>${getCategoryIcon(s.category)}</span>
+                <span class="slot-title">${escapeHtml(s.label)}</span>
+              </div>
+              <span class="slot-status-tag ${tagClass}">${escapeHtml(status)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update Activity Feed
+      const feedElem = document.getElementById('ledger-feed-list');
+      document.getElementById('feed-count-text').textContent = `${events.length} Events`;
+
+      if (events.length === 0) {
+        feedElem.innerHTML = `
+          <div style="padding: 12px; text-align: center; color: var(--text-dim); font-size: 12px;">
+            No confirmed activities logged today. As the senior speaks on Echo Show, confirmed logs appear here.
+          </div>
+        `;
+      } else {
+        const sorted = [...events].reverse();
+        feedElem.innerHTML = sorted.map(e => {
+          const timeStr = e.timestamp ? new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today';
+          return `
+            <div class="ledger-item">
+              <div class="ledger-item-left">
+                <span class="ledger-icon">${getCategoryIcon(e.routine_type)}</span>
+                <div>
+                  <strong>${escapeHtml(e.routine_type.toUpperCase())}</strong>: ${escapeHtml(e.value || e.notes || 'Completed')}
+                </div>
+                <span class="ledger-actor">${escapeHtml(e.logged_by || 'senior_voice')}</span>
+              </div>
+              <span class="ledger-time">${escapeHtml(timeStr)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Update Shift Display
+      document.getElementById('shift-caregiver-display').textContent = getSetting('departing') || 'David';
+      document.getElementById('shift-last-updated').textContent = `Synced: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    }
+
+    function triggerSyncFlash() {
+      const frame = document.getElementById('caregiver-frame');
+      const alert = document.getElementById('cg-sync-alert');
+      const timeElem = document.getElementById('cg-sync-time');
+
+      timeElem.textContent = new Date().toLocaleTimeString();
+      alert.style.display = 'flex';
+      frame.classList.add('sync-flash');
+
+      setTimeout(() => {
+        frame.classList.remove('sync-flash');
+      }, 1500);
+
+      setTimeout(() => {
+        alert.style.display = 'none';
+      }, 4500);
+    }
+
+    function getCategoryIcon(cat) {
+      switch((cat || '').toLowerCase()) {
         case 'hydration': return '💧';
         case 'meal': return '🥣';
         case 'vitamins': return '💊';
         case 'activity':
-        case 'walk':
-        case 'mobility': return '🚶';
-        default: return '✨';
+        case 'walk': return '🚶';
+        case 'wellness': return '🌿';
+        default: return '📋';
       }
     }
 
-    function confirmProposal(txId) {
-      const targetId = txId || pendingTransactionId;
-      if (!targetId) {
-        setAlexaSpeaking(false, "No proposal found to confirm.");
-        return;
-      }
-      callMCPTool('verify_routine_state', {
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // =========================================================================
+    // "TRY TO BREAK IT" DEMO VIDEO INVARIANT TESTS
+    // =========================================================================
+    async function testBreakConfirmNoPreview() {
+      // Intentionally dispatch confirm=true without a valid transaction_id
+      setAlexaSpeaking(true, "Testing invariant: confirm with no preview...");
+      const res = await callMCPTool('verify_routine_state', {
         confirm: true,
-        transaction_id: targetId
+        transaction_id: ""
       });
-    }
-
-    function confirmShiftHandoff() {
-      confirmProposal(pendingTransactionId);
-    }
-
-    function dismissDynamicSlot() {
-      document.getElementById('dynamic-slot').innerHTML = '';
-      setAlexaSpeaking(false, "Action cancelled.");
-    }
-
-    async function refreshSummary() {
-      await callMCPTool('get_caregiver_summary', { senior_id: SENIOR_ID });
-    }
-
-    function submitUtterance() {
-      const input = document.getElementById('utterance-input');
-      const text = input.value.trim();
-      if (!text) return;
-      
-      const routed = routeUtterance(text);
-      callMCPTool(routed.tool, routed.args);
-      input.value = '';
-    }
-
-    function logDebug(req, res, ms) {
-      const elem = document.getElementById('debug-content');
-      elem.textContent = `[${new Date().toLocaleTimeString()}] (${ms} ms)\nREQUEST:\n${JSON.stringify(req, null, 2)}\n\nRESPONSE:\n${JSON.stringify(res, null, 2)}`;
-    }
-
-    function toggleDebug() {
-      const content = document.getElementById('debug-content');
-      const ind = document.getElementById('debug-toggle-indicator');
-      if (content.classList.contains('open')) {
-        content.classList.remove('open');
-        ind.textContent = '[+ Expand]';
-      } else {
-        content.classList.add('open');
-        ind.textContent = '[- Collapse]';
+      if (res && res.status === 'error') {
+        renderRefusalCard(res.error_code || 'MISSING_TRANSACTION_ID', res.message);
+        setAlexaSpeaking(false, "Server refusal verified: confirm=True requires a live transaction ID.");
       }
     }
 
-    // Auto-fetch summary on simulator initial load
+    async function testBreakExpiredTx() {
+      setAlexaSpeaking(true, "Testing invariant: confirm with expired ID...");
+      const res = await callMCPTool('verify_routine_state', {
+        confirm: true,
+        transaction_id: "tx_expired_demo_99999"
+      });
+      if (res && res.status === 'error') {
+        renderRefusalCard(res.error_code || 'PROPOSAL_NOT_FOUND', res.message);
+        setAlexaSpeaking(false, "Server refusal verified: proposal ID not found or expired.");
+      }
+    }
+
+    async function testBreakWrongSenior() {
+      setAlexaSpeaking(true, "Testing invariant: unknown senior query...");
+      const res = await callMCPTool('get_caregiver_summary', {
+        senior_id: "unknown_senior_999"
+      });
+      if (res) {
+        renderSummaryOnEchoShow(res);
+        setAlexaSpeaking(false, "Server handled unknown senior gracefully with zero events.");
+      }
+    }
+
+    async function testBreakClinicalViolation() {
+      setAlexaSpeaking(true, "Testing invariant: clinical chemotherapy prescription...");
+      const seniorId = getSetting('senior_id');
+      const res = await callMCPTool('log_daily_routine', {
+        senior_id: seniorId,
+        category: "chemotherapy_prescription",
+        details: "Prescribe 50mg dose titration"
+      });
+      if (res && res.error) {
+        renderRefusalCard('INVALID_CATEGORY', res.error.message || 'Janus strictly rejects clinical chemotherapy.');
+      }
+    }
+
+    // =========================================================================
+    // DEBUG DRAWER
+    // =========================================================================
+    function logDebug(req, res, ms, headers) {
+      const elem = document.getElementById('debug-drawer-body');
+      elem.textContent = 
+        `[${new Date().toLocaleTimeString()}] HTTP POST (${ms} ms)\n` +
+        `REQUEST HEADERS:\n${JSON.stringify(headers || {}, null, 2)}\n\n` +
+        `REQUEST RPC:\n${JSON.stringify(req, null, 2)}\n\n` +
+        `RESPONSE RPC:\n${JSON.stringify(res, null, 2)}`;
+    }
+
+    function toggleDebugDrawer() {
+      const body = document.getElementById('debug-drawer-body');
+      const arrow = document.getElementById('debug-drawer-arrow');
+      if (body.classList.contains('open')) {
+        body.classList.remove('open');
+        arrow.textContent = '[+ Expand Payload]';
+      } else {
+        body.classList.add('open');
+        arrow.textContent = '[- Collapse Payload]';
+      }
+    }
+
+    // =========================================================================
+    // INITIALIZATION & 3-SECOND CAREGIVER POLLING LOOP
+    // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
-      refreshSummary();
+      onSettingChange();
+      // Start 3-second caregiver sync polling
+      autoPollTimer = setInterval(() => {
+        pollCaregiverSummary();
+      }, 3000);
     });
   </script>
 </body>

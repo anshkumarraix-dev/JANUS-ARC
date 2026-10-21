@@ -1,20 +1,51 @@
 """Janus (ElderSync) — FastMCP v2 Server Entrypoint.
 
 Implements the official Model Context Protocol (MCP spec 2025-11-25) over
-Streamable HTTP (0.0.0.0:8000/mcp) with 4 core non-clinical tools and safety confirmation gates.
+Streamable HTTP (0.0.0.0:8000/mcp) with 4 core non-clinical tools, safety confirmation gates,
+typed Pydantic v2 schemas, tool annotations, rewritten LLM descriptions, and MCP resources.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional, Union
 
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer as FastMCP
+from mcp.types import ToolAnnotations
+from pydantic import Field
 
 from janus import storage
+from janus.errors import (
+    ErrorCode,
+    InvalidCategoryError,
+)
+from janus.tools import (
+    RoutineLogRequest,
+    RoutineProposalPreview,
+    RoutineLogProposalResponse,
+    CaregiverSummaryRequest,
+    CaregiverSummaryResponse,
+    MissedRoutineRequest,
+    MissedRoutineAlert,
+    MissedRoutineResponse,
+    ShiftHandoffPayload,
+    RoutineStateVerifyRequest,
+    ProposalPreviewResponse,
+    CommittedStateResponse,
+    AlreadyCommittedResponse,
+    ProposalErrorResponse,
+)
+from janus.apl import (
+    build_routine_preview_card,
+    build_caregiver_summary_card,
+    build_handoff_confirm_card,
+    build_missed_routine_card,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -33,72 +64,100 @@ mcp = FastMCP(
 # ---------------------------------------------------------------------------
 # Tool 1: log_daily_routine
 # ---------------------------------------------------------------------------
-@mcp.tool()
+@mcp.tool(
+    name="log_daily_routine",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=False,
+    ),
+)
 async def log_daily_routine(
-    senior_id: str,
-    category: Optional[str] = None,
-    details: str = "",
-    timestamp: Optional[str] = None,
-    routine_type: Optional[str] = None,
-    notes: Optional[str] = None,
-    logged_by: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Log non-clinical daily living events such as meals, hydration, vitamins, activity, or wellness.
+    senior_id: Annotated[str, Field(description="Target senior profile identifier (e.g. 'margaret_01')")],
+    category: Annotated[Optional[str], Field(description="Routine category: 'meal', 'hydration', 'vitamins', 'activity', 'wellness'")] = None,
+    details: Annotated[str, Field(description="Additional description, quantity, or note (e.g. '500ml water', 'Morning oatmeal')")] = "",
+    timestamp: Annotated[Optional[str], Field(description="Optional ISO timestamp override")] = None,
+    routine_type: Annotated[Optional[str], Field(description="Alias for category (backward compatibility)")] = None,
+    notes: Annotated[Optional[str], Field(description="Alias for details (backward compatibility)")] = None,
+    logged_by: Annotated[Optional[str], Field(description="Actor initiating the log: 'senior_voice', 'caregiver_sarah', etc.")] = "senior_voice",
+) -> RoutineLogProposalResponse:
+    """Propose logging a non-clinical elder daily routine event (meals, hydration, vitamins, activity, wellness).
 
-    Validates input, creates a PENDING proposal, and writes NOTHING to routine_logs.
-    Confirmation via verify_routine_state(confirm=True, transaction_id=...) is required to commit.
+    WHEN TO CALL:
+    - Call when an elder or caregiver reports completing a daily living routine event (e.g. "Margaret drank a glass of water", "I finished breakfast", "Margaret took her morning vitamins", "Walked on the porch").
+    - Call to initiate recording of routine wellness activities for timeline tracking.
 
-    Args:
-        senior_id: Target senior identifier (e.g. 'margaret_01').
-        category: Routine category: 'meal', 'hydration', 'vitamins', 'activity', 'wellness'.
-        details: Additional description or quantity (e.g. '500ml water', 'Morning oatmeal').
-        timestamp: Optional timestamp override.
-        routine_type: Alias for category (backward compatibility).
-        notes: Alias for details (backward compatibility).
-        logged_by: Identifier of initiator ('senior_voice', 'caregiver_sarah', 'caregiver_david').
+    WHEN NOT TO CALL:
+    - DO NOT call for clinical symptoms, triage, medical diagnosis, blood pressure readings, or acute pain (Janus is strictly non-clinical).
+    - DO NOT call for prescription medication changes, adjustments, or titrations.
+    - DO NOT call to view historical logs or check if an activity was completed (call `get_caregiver_summary` instead).
+    - DO NOT call for caregiver shift changeovers (call `verify_routine_state` with action_type='shift_handoff' instead).
 
-    Returns:
-        Structured result containing transaction_id, status='pending_confirmation', preview, and spoken_prompt.
+    TWO-STEP CONFIRMATION GATE:
+    - Calling this tool creates a READ-ONLY pending proposal with 0 database writes.
+    - The LLM host MUST prompt the elder or caregiver with the returned `spoken_prompt` to obtain verbal consent.
+    - Once confirmed by the user, the host MUST invoke `verify_routine_state(confirm=True, transaction_id=...)` with the proposal's `transaction_id` to commit the record to permanent storage.
     """
-    resolved_cat = category or routine_type
+    req = RoutineLogRequest(
+        senior_id=senior_id,
+        category=category,
+        details=details or "",
+        timestamp=timestamp,
+        routine_type=routine_type,
+        notes=notes,
+        logged_by=logged_by or "senior_voice",
+    )
+
+    resolved_cat = req.category or req.routine_type
     if not resolved_cat:
-        raise ValueError("Field 'category' is required.")
+        raise InvalidCategoryError("empty")
 
     validated_cat = storage.validate_category(resolved_cat)
-    resolved_details = details or notes or ""
-    actor = logged_by or "senior_voice"
+    resolved_details = req.details or req.notes or ""
+    actor = req.logged_by or "senior_voice"
 
-    logger.info("log_daily_routine proposal: senior=%s, cat=%s, actor=%s", senior_id, validated_cat, actor)
+    logger.info("log_daily_routine proposal: senior=%s, cat=%s, actor=%s", req.senior_id, validated_cat, actor)
 
     proposal = storage.create_proposal(
-        senior_id=senior_id,
+        senior_id=req.senior_id,
         action_type="routine_log",
         payload={
             "category": validated_cat,
             "details": resolved_details,
-            "timestamp": timestamp,
+            "timestamp": req.timestamp,
             "actor": actor,
         },
         actor=actor,
     )
 
     tx_id = proposal["transaction_id"]
-    senior = storage.get_senior(senior_id)
-    senior_name = senior["name"] if senior else senior_id.replace("_", " ").title()
+    senior = storage.get_senior(req.senior_id)
+    senior_name = senior["name"] if senior else req.senior_id.replace("_", " ").title()
 
     spoken_prompt = (
         f"I have a pending note to record {validated_cat} ({resolved_details or 'completed'}) for {senior_name}. "
         "Would you like me to confirm and record this?"
     )
 
-    preview = {
-        "senior_id": senior_id,
-        "category": validated_cat,
-        "details": resolved_details,
-        "timestamp": timestamp or proposal["created_at"],
-        "actor": actor,
-        "expires_at": proposal["expires_at"],
-    }
+    apl_card, display_card = build_routine_preview_card(
+        senior_id=req.senior_id,
+        senior_name=senior_name,
+        category=validated_cat,
+        details=resolved_details,
+        voice_prompt=spoken_prompt,
+        transaction_id=tx_id,
+    )
+
+    preview = RoutineProposalPreview(
+        senior_id=req.senior_id,
+        category=validated_cat,
+        details=resolved_details,
+        timestamp=req.timestamp or proposal["created_at"],
+        actor=actor,
+        expires_at=proposal["expires_at"],
+        apl=apl_card,
+        display=display_card,
+    )
 
     echo_show_card = {
         "card_type": "EchoShowCard",
@@ -109,99 +168,135 @@ async def log_daily_routine(
         "transaction_id": tx_id,
     }
 
-    return {
-        "transaction_id": tx_id,
-        "status": "pending_confirmation",
-        "preview": preview,
-        "spoken_prompt": spoken_prompt,
-        "database_writes": 0,
-        "echo_show_card": echo_show_card,
-        "senior_id": senior_id,
-        "routine_type": validated_cat,
-        "category": validated_cat,
-        "notes": resolved_details,
-        "logged_by": actor,
-    }
+    return RoutineLogProposalResponse(
+        transaction_id=tx_id,
+        status="pending_confirmation",
+        preview=preview,
+        spoken_prompt=spoken_prompt,
+        database_writes=0,
+        echo_show_card=echo_show_card,
+        apl=apl_card,
+        display=display_card,
+        senior_id=req.senior_id,
+        routine_type=validated_cat,
+        category=validated_cat,
+        notes=resolved_details,
+        logged_by=actor,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Tool 2: get_caregiver_summary
 # ---------------------------------------------------------------------------
-@mcp.tool()
+@mcp.tool(
+    name="get_caregiver_summary",
+    annotations=ToolAnnotations(
+        read_only_hint=True,
+        destructive_hint=False,
+        idempotent_hint=True,
+    ),
+)
 async def get_caregiver_summary(
-    senior_id: str,
-    date: Optional[str] = None,
-    filter_status: str = "all",
-) -> Dict[str, Any]:
-    """Returns completed routines and pending steps formatted for Echo Show timeline cards.
+    senior_id: Annotated[str, Field(description="Target senior profile identifier (e.g. 'margaret_01')")],
+    date: Annotated[Optional[str], Field(description="Target date in 'YYYY-MM-DD' format (defaults to current local date in senior's timezone)")] = None,
+    filter_status: Annotated[str, Field(description="Filter slots by status: 'all', 'completed', or 'pending'")] = "all",
+) -> CaregiverSummaryResponse:
+    """Retrieve daily routine timeline, slot completion statuses, and visual cards for a senior.
 
-    Args:
-        senior_id: Target senior identifier (e.g. 'margaret_01').
-        date: Target date in 'YYYY-MM-DD' format (defaults to current local date).
-        filter_status: Filter slots by status: 'all', 'completed', or 'pending'.
+    WHEN TO CALL:
+    - Call when a caregiver, family member, or senior asks for today's summary, routine status, or timeline (e.g. "How is Margaret doing today?", "Did Margaret drink water this afternoon?", "What routines are still pending?").
+    - Call when rendering or refreshing the Echo Show smart display dashboard with timeline metrics.
 
-    Returns:
-        Aggregated summary including slot-level statuses, completion %, last_activity, and visual card payload.
+    WHEN NOT TO CALL:
+    - DO NOT call to log or record a completed routine (call `log_daily_routine` instead).
+    - DO NOT call to execute or preview a shift changeover (call `verify_routine_state` instead).
+    - DO NOT call for clinical records, medical history, or prescription management.
+
+    CHARACTERISTICS:
+    - Read-only tool (`readOnlyHint=True`) that never modifies the database.
+    - Aggregates confirmed events against schedule slot windows (+/- 30 min grace) in senior's local timezone.
     """
-    logger.info("get_caregiver_summary: senior=%s, date=%s, filter=%s", senior_id, date, filter_status)
-    summary = storage.get_daily_summary(senior_id=senior_id, target_date=date, filter_status=filter_status)
-    return summary
+    req = CaregiverSummaryRequest(
+        senior_id=senior_id,
+        date=date,
+        filter_status=filter_status,
+    )
+    logger.info("get_caregiver_summary: senior=%s, date=%s, filter=%s", req.senior_id, req.date, req.filter_status)
+    summary = storage.get_daily_summary(senior_id=req.senior_id, target_date=req.date, filter_status=req.filter_status)
+    return CaregiverSummaryResponse(**summary)
 
 
 # ---------------------------------------------------------------------------
 # Tool 3: verify_routine_state
 # ---------------------------------------------------------------------------
-@mcp.tool()
+@mcp.tool(
+    name="verify_routine_state",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+    ),
+)
 async def verify_routine_state(
-    confirm: bool = False,
-    transaction_id: Optional[str] = None,
-    senior_id: Optional[str] = None,
-    action_type: Optional[str] = None,
-    payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """Enforces safety confirmation gates for state changes and shift handoffs.
+    confirm: Annotated[bool, Field(description="Confirmation flag: False for proposal preview; True for atomic commit")] = False,
+    transaction_id: Annotated[Optional[str], Field(description="Transaction ID of a live pending proposal ('tx_...'). Required when confirm=True")] = None,
+    senior_id: Annotated[Optional[str], Field(description="Target senior identifier when creating a new proposal")] = None,
+    action_type: Annotated[Optional[str], Field(description="Proposal action type ('shift_handoff', 'routine_log')")] = "shift_handoff",
+    payload: Annotated[Optional[Dict[str, Any]], Field(description="Action payload when creating a new handoff proposal. Ignored on commit")] = None,
+) -> Union[ProposalPreviewResponse, CommittedStateResponse, AlreadyCommittedResponse, ProposalErrorResponse]:
+    """Safety confirmation gate for committing pending proposals and previewing caregiver shift handoffs.
 
-    - confirm=False + (senior_id, action_type='shift_handoff', payload) -> creates a handoff proposal and returns preview + transaction_id.
-    - confirm=False + transaction_id -> returns preview of that proposal, 0 writes.
-    - confirm=True -> REQUIRES transaction_id of a live pending proposal. No payload accepted on commit.
-      Unknown/expired/cancelled -> structured error, 0 writes.
-      Atomic & Idempotent: a second confirm=True returns status 'ALREADY_COMMITTED' with result_id and 0 writes.
+    WHEN TO CALL:
+    - Call with `confirm=True` and `transaction_id` when the user has confirmed a pending proposal created by `log_daily_routine` or a shift handoff proposal.
+    - Call with `confirm=False`, `senior_id`, and `action_type='shift_handoff'` to generate a shift handover proposal preview summarizing completed and pending routines before asking for confirmation.
+    - Call with `confirm=False` and `transaction_id` to inspect an existing pending proposal preview without committing.
 
-    Args:
-        confirm: Confirmation flag. False for proposal preview; True for atomic commit.
-        transaction_id: ID of a pending proposal ('tx_...'). Required when confirm=True.
-        senior_id: Target senior identifier when creating a new proposal.
-        action_type: Proposal action type ('shift_handoff', 'routine_log').
-        payload: Action payload when creating a new handoff proposal. Ignored on commit.
+    WHEN NOT TO CALL:
+    - DO NOT call with `confirm=True` without a valid `transaction_id` (unconfirmed payloads are rejected with 0 writes).
+    - DO NOT call to record new daily routine events from scratch (call `log_daily_routine` first to create a proposal).
+    - DO NOT call for clinical handoffs, hospital discharge summaries, or medical orders.
 
-    Returns:
-        Structured preview dictionary (confirm=False) or committed record confirmation (confirm=True).
+    TWO-STEP CONFIRMATION & IDEMPOTENCY:
+    - `confirm=False`: Read-only preview (0 database writes).
+    - `confirm=True`: Atomic commit (1 database write). Replaying `confirm=True` with the same `transaction_id` is idempotent and returns `ALREADY_COMMITTED` with 0 additional writes.
     """
+    req = RoutineStateVerifyRequest(
+        confirm=confirm,
+        transaction_id=transaction_id,
+        senior_id=senior_id,
+        action_type=action_type or "shift_handoff",
+        payload=payload or {},
+    )
+
     logger.info(
         "verify_routine_state: confirm=%s, tx=%s, senior=%s, action=%s",
-        confirm,
-        transaction_id,
-        senior_id,
-        action_type,
+        req.confirm,
+        req.transaction_id,
+        req.senior_id,
+        req.action_type,
     )
 
     # -----------------------------------------------------------------------
     # Case 1: Proposal Preview by Transaction ID (confirm=False + transaction_id)
     # -----------------------------------------------------------------------
-    if not confirm and transaction_id:
-        prop = storage.get_proposal(transaction_id)
+    if not req.confirm and req.transaction_id:
+        prop = storage.get_proposal(req.transaction_id)
         if not prop:
-            return {
-                "status": "error",
-                "error_code": "PROPOSAL_NOT_FOUND",
-                "message": f"Proposal '{transaction_id}' was not found.",
-                "database_writes": 0,
-            }
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.PROPOSAL_NOT_FOUND,
+                message=f"Proposal '{req.transaction_id}' was not found.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
 
         act_type = prop["action_type"]
         s_id = prop["senior_id"]
         prop_payload = prop.get("payload", {})
         actor = prop.get("actor", "caregiver")
+
+        senior = storage.get_senior(s_id)
+        senior_name = senior["name"] if senior else s_id.replace("_", " ").title()
 
         if act_type == "shift_handoff":
             departing = prop_payload.get("departing_caregiver", actor)
@@ -213,41 +308,62 @@ async def verify_routine_state(
                 f"Pending routines: {len(pending_names)}. Would you like to confirm this handoff?"
             )
             preview_summary = f"Shift handoff proposal: {departing} -> {incoming}."
+            apl_card, display_card = build_handoff_confirm_card(
+                senior_id=s_id,
+                senior_name=senior_name,
+                departing=departing,
+                incoming=incoming,
+                notes=prop_payload.get("handoff_notes", ""),
+                is_confirmed=False,
+                transaction_id=req.transaction_id,
+                spoken_prompt=spoken_prompt,
+            )
         else:
             cat = prop_payload.get("category", "wellness")
             det = prop_payload.get("details", "")
             spoken_prompt = f"Pending note to log {cat} ({det}). Would you like to confirm?"
             preview_summary = f"Routine proposal: {cat} ({det})."
+            apl_card, display_card = build_routine_preview_card(
+                senior_id=s_id,
+                senior_name=senior_name,
+                category=cat,
+                details=det,
+                voice_prompt=spoken_prompt,
+                transaction_id=req.transaction_id,
+            )
 
-        return {
-            "status": "PROPOSAL_PREVIEW",
-            "transaction_id": transaction_id,
-            "confirm_required": True,
-            "action_type": act_type,
-            "senior_id": s_id,
-            "proposed_payload": prop_payload,
-            "database_writes": 0,
-            "preview_summary": preview_summary,
-            "spoken_prompt": spoken_prompt,
-            "expires_at": prop["expires_at"],
-            "instructions": f"To commit this action, re-invoke verify_routine_state with confirm=True and transaction_id='{transaction_id}'.",
-        }
+        return ProposalPreviewResponse(
+            status="PROPOSAL_PREVIEW",
+            transaction_id=req.transaction_id,
+            confirm_required=True,
+            action_type=act_type,
+            senior_id=s_id,
+            proposed_payload=prop_payload,
+            routine_snapshot=prop_payload.get("routine_snapshot"),
+            database_writes=0,
+            preview_summary=preview_summary,
+            spoken_prompt=spoken_prompt,
+            expires_at=prop["expires_at"],
+            instructions=f"To commit this action, re-invoke verify_routine_state with confirm=True and transaction_id='{req.transaction_id}'.",
+            apl=apl_card,
+            display=display_card,
+        )
 
     # -----------------------------------------------------------------------
     # Case 2: Create New Proposal Preview (confirm=False + senior_id)
     # -----------------------------------------------------------------------
-    if not confirm:
-        if not senior_id:
-            return {
-                "status": "error",
-                "error_code": "INVALID_ARGUMENTS",
-                "message": "verify_routine_state with confirm=False requires either transaction_id or senior_id.",
-                "database_writes": 0,
-            }
+    if not req.confirm:
+        if not req.senior_id:
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.INVALID_ARGUMENTS,
+                message="verify_routine_state with confirm=False requires either transaction_id or senior_id.",
+                database_writes=0,
+            )
 
-        act_type = action_type or "shift_handoff"
-        payload_data = payload or {}
-        summary = storage.get_daily_summary(senior_id=senior_id)
+        act_type = req.action_type or "shift_handoff"
+        payload_data = req.payload or {}
+        summary = storage.get_daily_summary(senior_id=req.senior_id)
         pending_names = [r["name"] for r in summary.get("pending_routines", [])]
 
         departing = payload_data.get("departing_caregiver", "Current Caregiver")
@@ -263,16 +379,25 @@ async def verify_routine_state(
         full_payload = dict(payload_data)
         full_payload["routine_snapshot"] = snapshot
 
+        # If shift handoff, validate via ShiftHandoffPayload model
+        if act_type == "shift_handoff":
+            ShiftHandoffPayload(
+                departing_caregiver=departing,
+                incoming_caregiver=incoming,
+                handoff_notes=notes,
+                routine_snapshot=snapshot,
+            )
+
         prop = storage.create_proposal(
-            senior_id=senior_id,
+            senior_id=req.senior_id,
             action_type=act_type,
             payload=full_payload,
             actor=departing,
         )
         tx_id = prop["transaction_id"]
 
-        senior = storage.get_senior(senior_id)
-        senior_name = senior["name"] if senior else senior_id.replace("_", " ").title()
+        senior = storage.get_senior(req.senior_id)
+        senior_name = senior["name"] if senior else req.senior_id.replace("_", " ").title()
 
         spoken_prompt = (
             f"{senior_name} currently has {len(pending_names)} pending routine items "
@@ -280,47 +405,74 @@ async def verify_routine_state(
             f"Do you confirm handing off care from {departing} to {incoming} with notes: '{notes}'?"
         )
 
-        return {
-            "status": "PROPOSAL_PREVIEW",
-            "transaction_id": tx_id,
-            "confirm_required": True,
-            "action_type": act_type,
-            "senior_id": senior_id,
-            "proposed_payload": full_payload,
-            "routine_snapshot": snapshot,
-            "database_writes": 0,
-            "preview_summary": f"Shift handoff proposal: {departing} -> {incoming}. Pending items: {len(pending_names)}.",
-            "spoken_prompt": spoken_prompt,
-            "expires_at": prop["expires_at"],
-            "instructions": f"To commit this action, re-invoke verify_routine_state with confirm=True and transaction_id='{tx_id}'.",
-        }
+        apl_card, display_card = build_handoff_confirm_card(
+            senior_id=req.senior_id,
+            senior_name=senior_name,
+            departing=departing,
+            incoming=incoming,
+            notes=notes,
+            is_confirmed=False,
+            transaction_id=tx_id,
+            spoken_prompt=spoken_prompt,
+        )
+
+        return ProposalPreviewResponse(
+            status="PROPOSAL_PREVIEW",
+            transaction_id=tx_id,
+            confirm_required=True,
+            action_type=act_type,
+            senior_id=req.senior_id,
+            proposed_payload=full_payload,
+            routine_snapshot=snapshot,
+            database_writes=0,
+            preview_summary=f"Shift handoff proposal: {departing} -> {incoming}. Pending items: {len(pending_names)}.",
+            spoken_prompt=spoken_prompt,
+            expires_at=prop["expires_at"],
+            instructions=f"To commit this action, re-invoke verify_routine_state with confirm=True and transaction_id='{tx_id}'.",
+            apl=apl_card,
+            display=display_card,
+        )
 
     # -----------------------------------------------------------------------
     # Case 3: Atomic Confirmed Commit (confirm=True)
     # -----------------------------------------------------------------------
-    if not transaction_id:
-        return {
-            "status": "error",
-            "error_code": "MISSING_TRANSACTION_ID",
-            "message": "confirm=True REQUIRES a valid transaction_id of a live pending proposal. No unconfirmed payload accepted on commit.",
-            "database_writes": 0,
-        }
+    if not req.transaction_id:
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.MISSING_TRANSACTION_ID,
+            message="confirm=True REQUIRES a valid transaction_id of a live pending proposal. No unconfirmed payload accepted on commit.",
+            database_writes=0,
+        )
 
-    commit_res = storage.commit_proposal(transaction_id=transaction_id)
+    commit_res = storage.commit_proposal(transaction_id=req.transaction_id)
     if commit_res["status"] == "error":
-        return commit_res
+        return ProposalErrorResponse(**commit_res)
     if commit_res["status"] == "ALREADY_COMMITTED":
-        return commit_res
+        return AlreadyCommittedResponse(**commit_res)
 
     # Successfully committed
     committed_rec = commit_res["committed_record"]
     act_type = commit_res["action_type"]
     s_id = commit_res["senior_id"]
 
+    senior = storage.get_senior(s_id)
+    senior_name = senior["name"] if senior else s_id.replace("_", " ").title()
+
     if act_type == "shift_handoff":
         departing = committed_rec.get("departing_caregiver", "Caregiver")
         incoming = committed_rec.get("incoming_caregiver", "Caregiver")
         notes = committed_rec.get("handoff_notes", "")
+        spoken_response = f"Caregiver shift handoff from {departing} to {incoming} has been verified and recorded."
+        apl_card, display_card = build_handoff_confirm_card(
+            senior_id=s_id,
+            senior_name=senior_name,
+            departing=departing,
+            incoming=incoming,
+            notes=notes,
+            is_confirmed=True,
+            transaction_id=req.transaction_id,
+            spoken_prompt=spoken_response,
+        )
         echo_show_card = {
             "card_type": "EchoShowHandoffCard",
             "title": "Caregiver Shift Handoff Confirmed",
@@ -330,9 +482,17 @@ async def verify_routine_state(
             "timestamp": commit_res["timestamp"],
             "icon": "shield-check",
         }
-        spoken_response = f"Caregiver shift handoff from {departing} to {incoming} has been verified and recorded."
     else:
         rtype = committed_rec.get("routine_type", "Routine")
+        spoken_response = f"{rtype.title()} routine has been verified and recorded."
+        apl_card, display_card = build_routine_preview_card(
+            senior_id=s_id,
+            senior_name=senior_name,
+            category=rtype,
+            details=committed_rec.get("notes", ""),
+            voice_prompt="",
+            transaction_id=req.transaction_id,
+        )
         echo_show_card = {
             "card_type": "EchoShowCard",
             "title": f"Logged: {rtype.title()}",
@@ -340,89 +500,99 @@ async def verify_routine_state(
             "timestamp": commit_res["timestamp"],
             "icon": "check-circle",
         }
-        spoken_response = f"{rtype.title()} routine has been verified and recorded."
 
-    return {
-        "status": "COMMITTED",
-        "transaction_id": transaction_id,
-        "action_type": act_type,
-        "senior_id": s_id,
-        "result_id": commit_res["result_id"],
-        "database_writes": 1,
-        "committed_record": committed_rec,
-        "echo_show_card": echo_show_card,
-        "spoken_response": spoken_response,
-    }
+    return CommittedStateResponse(
+        status="COMMITTED",
+        transaction_id=req.transaction_id,
+        action_type=act_type,
+        senior_id=s_id,
+        result_id=commit_res["result_id"],
+        database_writes=1,
+        committed_record=committed_rec,
+        echo_show_card=echo_show_card,
+        apl=apl_card,
+        display=display_card,
+        spoken_response=spoken_response,
+    )
 
 
 # ---------------------------------------------------------------------------
 # Tool 4: flag_missed_routine
 # ---------------------------------------------------------------------------
-@mcp.tool()
+@mcp.tool(
+    name="flag_missed_routine",
+    annotations=ToolAnnotations(
+        read_only_hint=False,
+        destructive_hint=False,
+        idempotent_hint=True,
+    ),
+)
 async def flag_missed_routine(
-    senior_id: str,
-    threshold_hours: int = 1,
-    routine_name: Optional[str] = None,
-    scheduled_time: Optional[str] = None,
-    urgency_level: str = "medium",
-) -> Dict[str, Any]:
-    """Scans overdue slots older than threshold_hours and emits deduplicated escalation alerts.
+    senior_id: Annotated[str, Field(description="Target senior profile identifier (e.g. 'margaret_01')")],
+    threshold_hours: Annotated[int, Field(description="Minimum hours overdue before escalating alerts (default 1)")] = 1,
+    routine_name: Annotated[Optional[str], Field(description="Optional specific routine name or category to check")] = None,
+    scheduled_time: Annotated[Optional[str], Field(description="Optional expected time window string (e.g. '14:00')")] = None,
+    urgency_level: Annotated[str, Field(description="Urgency level ('low', 'medium', 'high')")] = "medium",
+) -> MissedRoutineResponse:
+    """Scan scheduled routine windows for overdue items and generate gentle, non-alarm ambient reminders.
 
-    Escalation ladder:
-      - Level 0: Gentle voice prompt (overdue >= threshold_hours)
-      - Level 1: Display banner (overdue >= threshold_hours + step)
-      - Level 2: Caregiver timeline alert (overdue >= threshold_hours + 2*step)
+    WHEN TO CALL:
+    - Call during scheduled ambient check-ins or when proactive monitoring detects that an expected routine window has passed (e.g. senior has not logged afternoon water within threshold hours).
+    - Call to check if a specific scheduled routine was missed (e.g. `routine_name="Afternoon Hydration"`).
+    - Emits gentle conversational reminders and Echo Show banners formatted for non-clinical eldercare.
 
-    Persists in alerts with dedupe (same slot+day+level is never re-emitted).
-    Uses strictly non-alarm, gentle wording.
+    WHEN NOT TO CALL:
+    - DO NOT call for urgent medical emergencies, falls, or acute symptoms (escalate immediately to emergency services).
+    - DO NOT call to fetch general daily summaries or completed activity counts (call `get_caregiver_summary` instead).
+    - DO NOT call to record routine completions (call `log_daily_routine` instead).
 
-    Args:
-        senior_id: Target senior identifier (e.g. 'margaret_01').
-        threshold_hours: Minimum hours overdue before escalating alerts (default 1).
-        routine_name: Optional specific routine name or category to check.
-        scheduled_time: Optional expected time window string (e.g. '14:00').
-        urgency_level: Urgency level ('low', 'medium', 'high').
-
-    Returns:
-        Escalation alert payload formatted for gentle ambient prompts and display banners.
+    CHARACTERISTICS:
+    - Writes deduplicated alerts to the database (`readOnlyHint=False`, `idempotentHint=True`). Identical slot alerts on the same day and level are never re-emitted.
     """
-    logger.info(
-        "flag_missed_routine: senior=%s, threshold=%s, routine=%s, time=%s, urgency=%s",
-        senior_id,
-        threshold_hours,
-        routine_name,
-        scheduled_time,
-        urgency_level,
+    req = MissedRoutineRequest(
+        senior_id=senior_id,
+        threshold_hours=threshold_hours,
+        routine_name=routine_name,
+        scheduled_time=scheduled_time,
+        urgency_level=urgency_level,
     )
 
-    senior = storage.get_senior(senior_id)
-    senior_name = senior["name"] if senior else senior_id.replace("_", " ").title()
+    logger.info(
+        "flag_missed_routine: senior=%s, threshold=%s, routine=%s, time=%s, urgency=%s",
+        req.senior_id,
+        req.threshold_hours,
+        req.routine_name,
+        req.scheduled_time,
+        req.urgency_level,
+    )
+
+    senior = storage.get_senior(req.senior_id)
+    senior_name = senior["name"] if senior else req.senior_id.replace("_", " ").title()
     first_name = senior_name.split()[0]
 
     # If routine_name is specified, perform targeted single-routine verification
-    if routine_name:
-        summary = storage.get_daily_summary(senior_id=senior_id)
+    if req.routine_name:
+        summary = storage.get_daily_summary(senior_id=req.senior_id)
         slots = summary.get("slots", [])
 
-        # Check if routine_name matches a specific slot by label or slot_id
         matching_slot = None
         for s in slots:
-            if s["label"].lower() == routine_name.lower() or s["slot_id"].lower() == routine_name.lower():
+            if s["label"].lower() == req.routine_name.lower() or s["slot_id"].lower() == req.routine_name.lower():
                 matching_slot = s
                 break
 
         if matching_slot:
             is_missed = (matching_slot["status"] != "completed")
-            display_time = scheduled_time or f"{matching_slot['window_start']} - {matching_slot['window_end']}"
+            display_time = req.scheduled_time or f"{matching_slot['window_start']} - {matching_slot['window_end']}"
             slot_label = matching_slot["label"]
-        elif routine_name.lower() in storage.VALID_CATEGORIES:
-            is_missed = routine_name.lower() not in summary.get("completed_types", [])
-            display_time = scheduled_time or "today"
-            slot_label = routine_name.title()
+        elif req.routine_name.lower() in storage.VALID_CATEGORIES:
+            is_missed = req.routine_name.lower() not in summary.get("completed_types", [])
+            display_time = req.scheduled_time or "today"
+            slot_label = req.routine_name.title()
         else:
-            is_missed = routine_name.lower() not in summary.get("completed_types", [])
-            display_time = scheduled_time or "scheduled time"
-            slot_label = routine_name
+            is_missed = req.routine_name.lower() not in summary.get("completed_types", [])
+            display_time = req.scheduled_time or "scheduled time"
+            slot_label = req.routine_name
 
         voice_prompt = (
             f"Hi {first_name}, whenever you're ready, it might be a good time for your {slot_label.lower()}."
@@ -430,47 +600,59 @@ async def flag_missed_routine(
             else f"{slot_label} has already been logged for today."
         )
 
-        alert_payload = {
-            "type": "ambient_reminder",
-            "voice_prompt": voice_prompt,
-            "echo_show_banner": {
+        alert_payload = MissedRoutineAlert(
+            type="ambient_reminder",
+            voice_prompt=voice_prompt,
+            echo_show_banner={
                 "title": f"Routine Check-in: {slot_label}",
-                "urgency": urgency_level,
+                "urgency": req.urgency_level,
                 "scheduled_time": display_time,
                 "senior_name": senior_name,
                 "is_missed": is_missed,
                 "action_button": f"Log {slot_label} Now",
             },
-        }
+        )
 
-        return {
-            "status": "FLAGGED" if is_missed else "ALREADY_LOGGED",
-            "senior_id": senior_id,
-            "senior_name": senior_name,
-            "routine_name": routine_name,
-            "scheduled_time": display_time,
-            "urgency_level": urgency_level,
-            "is_missed": is_missed,
-            "alert_payload": alert_payload,
-            "message": (
-                f"Passive reminder generated for {slot_label} (Urgency: {urgency_level})."
+        apl_card, display_card = build_missed_routine_card(
+            senior_id=req.senior_id,
+            senior_name=senior_name,
+            routine_name=slot_label,
+            display_time=display_time,
+            urgency_level=req.urgency_level or "medium",
+            voice_prompt=voice_prompt,
+            is_missed=is_missed,
+        )
+
+        return MissedRoutineResponse(
+            status="FLAGGED" if is_missed else "ALREADY_LOGGED",
+            senior_id=req.senior_id,
+            senior_name=senior_name,
+            routine_name=req.routine_name,
+            scheduled_time=display_time,
+            urgency_level=req.urgency_level,
+            is_missed=is_missed,
+            alert_payload=alert_payload,
+            apl=apl_card,
+            display=display_card,
+            message=(
+                f"Passive reminder generated for {slot_label} (Urgency: {req.urgency_level})."
                 if is_missed
                 else f"{slot_label} was already verified as completed today."
             ),
-        }
+        )
 
     # Multi-slot scan mode using scan_missed_routines
     scan_result = storage.scan_missed_routines(
-        senior_id=senior_id,
-        threshold_hours=threshold_hours,
+        senior_id=req.senior_id,
+        threshold_hours=req.threshold_hours,
     )
 
     top_alert = scan_result["alerts_emitted"][0] if scan_result["alerts_emitted"] else None
     if top_alert:
-        alert_payload = {
-            "type": "ambient_reminder",
-            "voice_prompt": top_alert["message"],
-            "echo_show_banner": {
+        alert_payload = MissedRoutineAlert(
+            type="ambient_reminder",
+            voice_prompt=top_alert["message"],
+            echo_show_banner={
                 "title": f"Routine Check-in: {top_alert['label']}",
                 "urgency": "medium",
                 "scheduled_time": top_alert["channel"],
@@ -478,12 +660,12 @@ async def flag_missed_routine(
                 "is_missed": True,
                 "action_button": f"Log {top_alert['label']} Now",
             },
-        }
+        )
     else:
-        alert_payload = {
-            "type": "ambient_reminder",
-            "voice_prompt": f"All scheduled routines are up to date for {first_name}.",
-            "echo_show_banner": {
+        alert_payload = MissedRoutineAlert(
+            type="ambient_reminder",
+            voice_prompt=f"All scheduled routines are up to date for {first_name}.",
+            echo_show_banner={
                 "title": "All Routines Current",
                 "urgency": "low",
                 "scheduled_time": "Now",
@@ -491,12 +673,45 @@ async def flag_missed_routine(
                 "is_missed": False,
                 "action_button": "View Timeline",
             },
-        }
+        )
 
-    res = dict(scan_result)
-    res["alert_payload"] = alert_payload
-    res["is_missed"] = bool(scan_result["alerts_emitted"] or scan_result["overdue_slots"])
-    return res
+    apl_card, display_card = build_missed_routine_card(
+        senior_id=req.senior_id,
+        senior_name=senior_name,
+        routine_name=top_alert["label"] if top_alert else "Daily Routines",
+        display_time=top_alert["channel"] if top_alert else "Today",
+        urgency_level="medium" if top_alert else "low",
+        voice_prompt=alert_payload.voice_prompt,
+        is_missed=bool(top_alert),
+    )
+
+    return MissedRoutineResponse(
+        status=scan_result["status"],
+        senior_id=req.senior_id,
+        senior_name=senior_name,
+        is_missed=bool(scan_result["alerts_emitted"] or scan_result["overdue_slots"]),
+        alert_payload=alert_payload,
+        apl=apl_card,
+        display=display_card,
+        message=scan_result["message"],
+        date=scan_result["date"],
+        threshold_hours=scan_result["threshold_hours"],
+        overdue_count=scan_result["overdue_count"],
+        overdue_slots=scan_result["overdue_slots"],
+        alerts_count=scan_result["alerts_count"],
+        alerts_emitted=scan_result["alerts_emitted"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# MCP Resource: janus://senior/{id}/today
+# ---------------------------------------------------------------------------
+@mcp.resource("janus://senior/{id}/today", mime_type="application/json")
+def get_senior_today_resource(id: str) -> str:
+    """Read-only summary resource providing today's non-clinical routine timeline and metrics."""
+    logger.info("Reading resource janus://senior/%s/today", id)
+    summary = storage.get_daily_summary(senior_id=id)
+    return json.dumps(summary, indent=2)
 
 
 # ---------------------------------------------------------------------------
@@ -525,17 +740,29 @@ def get_app(host: str = "0.0.0.0") -> Starlette:
         expose_headers=["Mcp-Session-Id", "MCP-Protocol-Version"],
     )
 
+    # Health check endpoint for container probes and reviewers
+    async def health_endpoint(request: Any) -> JSONResponse:
+        return JSONResponse({
+            "status": "healthy",
+            "service": "janus-mcp",
+            "version": "0.1.0",
+            "protocol": "2025-11-25",
+        })
+
+    app.add_route("/health", health_endpoint, methods=["GET"])
+
     return app
 
 
-def run_server(host: str = "0.0.0.0", port: int = 8000) -> None:
+def run_server(host: str = "0.0.0.0", port: int = 8000, log_level: Optional[str] = None) -> None:
     """Launch the FastMCP server with uvicorn."""
     import uvicorn
 
+    level = log_level or os.environ.get("JANUS_LOG_LEVEL", "info")
     logger.info("Starting Janus FastMCP v2 server on http://%s:%d/mcp ...", host, port)
     app = get_app(host=host)
     try:
-        uvicorn.run(app, host=host, port=port, log_level="info")
+        uvicorn.run(app, host=host, port=port, log_level=level)
     except OSError as e:
         if "10048" in str(e) or "address already in use" in str(e).lower():
             logger.error(
@@ -551,7 +778,9 @@ def main() -> None:
     """Console script entrypoint for janus-server and python -m janus.server."""
     host_env = os.environ.get("JANUS_HOST", "0.0.0.0")
     port_env = int(os.environ.get("JANUS_PORT", "8000"))
-    run_server(host=host_env, port=port_env)
+    level_env = os.environ.get("JANUS_LOG_LEVEL", "info")
+    run_server(host=host_env, port=port_env, log_level=level_env)
+
 
 
 if __name__ == "__main__":

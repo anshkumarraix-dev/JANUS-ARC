@@ -21,15 +21,34 @@ dependencies = [
     "tzdata>=2024.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/<YOUR_GITHUB_USER>/janus-mcp"
+Repository = "https://github.com/<YOUR_GITHUB_USER>/janus-mcp.git"
+Issues = "https://github.com/<YOUR_GITHUB_USER>/janus-mcp/issues"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "jsonschema>=4.20.0",
     "flake8>=7.0.0",
 ]
 
 [project.scripts]
 janus-server = "janus.server:main"
+janus-audit = "janus.audit:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["janus"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

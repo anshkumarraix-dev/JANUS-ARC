@@ -6,6 +6,7 @@ and caregiver shift handoff records with sub-10ms query execution.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sqlite3
@@ -14,6 +15,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
+
+from janus.errors import ErrorCode, InvalidCategoryError
 
 # Default database location in ./data/janus.db relative to repository root
 DEFAULT_DB_PATH = os.environ.get(
@@ -78,14 +81,66 @@ def parse_timestamp_to_tz(ts: str | datetime, tz: ZoneInfo) -> datetime:
 def validate_category(category: str) -> str:
     """Validate and normalize a routine category against non-clinical boundaries."""
     if not category:
-        raise ValueError("Routine category cannot be empty.")
+        raise InvalidCategoryError("empty")
     normalized = category.strip().lower()
     if normalized not in VALID_CATEGORIES:
-        raise ValueError(
-            f"Invalid category '{category}'. Non-clinical allowed categories are: "
-            f"{', '.join(sorted(VALID_CATEGORIES))}."
-        )
+        raise InvalidCategoryError(category)
     return normalized
+
+
+def compute_audit_hash(prev_hash: str, row_data: Dict[str, Any]) -> str:
+    """Compute deterministic SHA-256 hash for audit log chain."""
+    canonical = prev_hash + json.dumps(row_data, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def record_audit_entry(
+    actor: str,
+    role: str,
+    tool: str,
+    senior_id: Optional[str],
+    transaction_id: Optional[str],
+    outcome: str,
+    db_path: Optional[str] = None,
+    now: Optional[datetime] = None,
+) -> Dict[str, Any]:
+    """Append a cryptographic tamper-evident record to the audit_log table."""
+    conn = get_connection(db_path)
+    try:
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, hash FROM audit_log ORDER BY id DESC LIMIT 1")
+            last_row = cursor.fetchone()
+            prev_hash = last_row["hash"] if last_row else ("0" * 64)
+            last_id = last_row["id"] if last_row else 0
+            next_id = last_id + 1
+
+            now_dt = get_current_time(now)
+            ts = format_iso(now_dt)
+
+            row_data = {
+                "actor": actor,
+                "id": next_id,
+                "outcome": outcome,
+                "role": role,
+                "senior_id": senior_id,
+                "tool": tool,
+                "transaction_id": transaction_id,
+                "ts": ts,
+            }
+            new_hash = compute_audit_hash(prev_hash, row_data)
+
+            cursor.execute(
+                """
+                INSERT INTO audit_log (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, new_hash),
+            )
+            return {"id": cursor.lastrowid, "hash": new_hash, "prev_hash": prev_hash}
+    finally:
+        conn.close()
+
 
 
 # Standard non-clinical daily expectations
@@ -177,7 +232,6 @@ def get_connection(db_path: Optional[str] = None) -> sqlite3.Connection:
         os.makedirs(dir_name, exist_ok=True)
     conn = sqlite3.connect(target_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
@@ -188,6 +242,8 @@ def init_db(db_path: Optional[str] = None) -> None:
     conn = get_connection(db_path)
     try:
         with conn:
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA synchronous = NORMAL")
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS seniors (
@@ -261,6 +317,19 @@ def init_db(db_path: Optional[str] = None) -> None:
                     FOREIGN KEY (senior_id) REFERENCES seniors(id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    tool TEXT NOT NULL,
+                    senior_id TEXT,
+                    transaction_id TEXT,
+                    outcome TEXT NOT NULL,
+                    prev_hash TEXT NOT NULL,
+                    hash TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_routine_senior_time
                 ON routine_logs (senior_id, timestamp);
 
@@ -275,6 +344,9 @@ def init_db(db_path: Optional[str] = None) -> None:
 
                 CREATE INDEX IF NOT EXISTS idx_alerts_lookup
                 ON alerts (senior_id, slot_id, date, level);
+
+                CREATE INDEX IF NOT EXISTS idx_audit_time
+                ON audit_log (ts);
                 """
             )
 
@@ -324,15 +396,31 @@ def init_db(db_path: Optional[str] = None) -> None:
         conn.close()
 
 
+_senior_cache: Dict[Tuple[str, Optional[str]], Dict[str, Any]] = {}
+_schedule_slots_cache: Dict[Tuple[str, Optional[str]], List[Dict[str, Any]]] = {}
+
+
+def clear_caches() -> None:
+    """Clear in-memory caches (used in testing and dynamic profile reloads)."""
+    _senior_cache.clear()
+    _schedule_slots_cache.clear()
+
+
 def get_senior(senior_id: str, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Retrieve senior profile by ID."""
+    cache_key = (senior_id, db_path)
+    if cache_key in _senior_cache:
+        return dict(_senior_cache[cache_key])
+
     conn = get_connection(db_path)
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT id, name, age, notes, tz, created_at FROM seniors WHERE id = ?", (senior_id,))
         row = cursor.fetchone()
         if row:
-            return dict(row)
+            res = dict(row)
+            _senior_cache[cache_key] = res
+            return dict(res)
         return None
     finally:
         conn.close()
@@ -354,6 +442,7 @@ def set_senior_timezone(senior_id: str, tz_name: str, db_path: Optional[str] = N
     ensure_senior_exists(senior_id, db_path=db_path)
     # Validate IANA timezone
     ZoneInfo(tz_name)
+    _senior_cache.pop((senior_id, db_path), None)
     conn = get_connection(db_path)
     try:
         with conn:
@@ -391,6 +480,10 @@ def seed_default_schedule(senior_id: str, db_path: Optional[str] = None) -> None
 
 def get_schedule_slots(senior_id: str, db_path: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieve schedule slots for a senior from routine_schedule."""
+    cache_key = (senior_id, db_path)
+    if cache_key in _schedule_slots_cache:
+        return [dict(s) for s in _schedule_slots_cache[cache_key]]
+
     conn = get_connection(db_path)
     try:
         cursor = conn.cursor()
@@ -404,7 +497,10 @@ def get_schedule_slots(senior_id: str, db_path: Optional[str] = None) -> List[Di
             (senior_id,),
         )
         rows = cursor.fetchall()
-        return [dict(r) for r in rows]
+        res = [dict(r) for r in rows]
+        if res:
+            _schedule_slots_cache[cache_key] = res
+        return [dict(r) for r in res]
     finally:
         conn.close()
 
@@ -418,9 +514,6 @@ def ensure_senior_exists(
     """Ensure senior profile exists, creating a default one and seeding schedule if necessary."""
     senior = get_senior(senior_id, db_path=db_path)
     if senior:
-        # Ensure default schedule exists
-        if not get_schedule_slots(senior_id, db_path=db_path):
-            seed_default_schedule(senior_id, db_path=db_path)
         return senior
 
     conn = get_connection(db_path)
@@ -660,6 +753,18 @@ def get_daily_summary(
         "last_activity": last_activity,
     }
 
+    from janus.apl import build_caregiver_summary_card
+    next_slot_label = pending_routines[0].get("name") if pending_routines else None
+    apl_card, display_card = build_caregiver_summary_card(
+        senior_id=senior_id,
+        senior_name=senior_name,
+        date=date_str,
+        completion_percentage=completion_pct,
+        completed_count=completed_slots_count,
+        total_count=total_slots,
+        next_slot=next_slot_label,
+    )
+
     return {
         "status": "success",
         "senior_id": senior_id,
@@ -678,6 +783,8 @@ def get_daily_summary(
         "completed_types": sorted(list(completed_types)),
         "pending_routines": pending_routines,
         "visual_card": visual_card,
+        "apl": apl_card,
+        "display": display_card,
     }
 
 
@@ -1205,6 +1312,33 @@ def commit_proposal(
             cursor.execute(
                 "UPDATE proposals SET result_id = ? WHERE transaction_id = ?",
                 (result_id, transaction_id),
+            )
+
+            # Record tamper-evident audit log entry in same transaction
+            cursor.execute("SELECT id, hash FROM audit_log ORDER BY id DESC LIMIT 1")
+            last_audit = cursor.fetchone()
+            prev_hash = last_audit["hash"] if last_audit else ("0" * 64)
+            last_id = last_audit["id"] if last_audit else 0
+            audit_id = last_id + 1
+
+            audit_role = "caregiver" if "caregiver" in actor else "senior"
+            audit_row = {
+                "actor": actor,
+                "id": audit_id,
+                "outcome": "COMMITTED",
+                "role": audit_role,
+                "senior_id": senior_id,
+                "tool": "verify_routine_state",
+                "transaction_id": transaction_id,
+                "ts": now_iso,
+            }
+            new_audit_hash = compute_audit_hash(prev_hash, audit_row)
+            cursor.execute(
+                """
+                INSERT INTO audit_log (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, hash)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (now_iso, actor, audit_role, "verify_routine_state", senior_id, transaction_id, "COMMITTED", prev_hash, new_audit_hash),
             )
 
         return {

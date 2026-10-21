@@ -1,11 +1,41 @@
 """Janus (ElderSync) — Tools package."""
 
-from .routine import RoutineLogRequest, RoutineLogResponse
-from .handoff import ShiftHandoffPayload, RoutineStateVerifyRequest
+from .base import JanusBaseModel
+from .routine import (
+    RoutineLogRequest,
+    RoutineProposalPreview,
+    RoutineLogProposalResponse,
+    CaregiverSummaryRequest,
+    CaregiverSummaryResponse,
+    MissedRoutineRequest,
+    MissedRoutineAlert,
+    MissedRoutineResponse,
+    VALID_CATEGORIES,
+)
+from .handoff import (
+    ShiftHandoffPayload,
+    RoutineStateVerifyRequest,
+    ProposalPreviewResponse,
+    CommittedStateResponse,
+    AlreadyCommittedResponse,
+    ProposalErrorResponse,
+)
 
 __all__ = [
+    "JanusBaseModel",
     "RoutineLogRequest",
-    "RoutineLogResponse",
+    "RoutineProposalPreview",
+    "RoutineLogProposalResponse",
+    "CaregiverSummaryRequest",
+    "CaregiverSummaryResponse",
+    "MissedRoutineRequest",
+    "MissedRoutineAlert",
+    "MissedRoutineResponse",
     "ShiftHandoffPayload",
     "RoutineStateVerifyRequest",
+    "ProposalPreviewResponse",
+    "CommittedStateResponse",
+    "AlreadyCommittedResponse",
+    "ProposalErrorResponse",
+    "VALID_CATEGORIES",
 ]

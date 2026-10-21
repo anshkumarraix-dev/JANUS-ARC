@@ -1,5 +1,6 @@
 # Python virtual environments & bytecode
 .venv/
+.smoke_venv/
 venv/
 ENV/
 __pycache__/
