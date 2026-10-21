@@ -1,0 +1,110 @@
+{
+  "type": "APL",
+  "version": "2024.3",
+  "theme": "dark",
+  "description": "Echo Show 8 landscape routine proposal preview card with two-step voice confirmation.",
+  "mainTemplate": {
+    "parameters": [
+      "payload"
+    ],
+    "item": {
+      "type": "Container",
+      "width": "100%",
+      "height": "100%",
+      "backgroundColor": "#0B0F19",
+      "paddingLeft": "48dp",
+      "paddingRight": "48dp",
+      "paddingTop": "36dp",
+      "paddingBottom": "36dp",
+      "justifyContent": "spaceBetween",
+      "items": [
+        {
+          "type": "Container",
+          "direction": "row",
+          "alignItems": "center",
+          "justifyContent": "spaceBetween",
+          "items": [
+            {
+              "type": "Text",
+              "text": "${payload.header}",
+              "fontSize": "26dp",
+              "fontWeight": "700",
+              "color": "#94A3B8",
+              "maxLines": 1
+            },
+            {
+              "type": "Frame",
+              "backgroundColor": "#1E293B",
+              "borderRadius": "8dp",
+              "paddingLeft": "16dp",
+              "paddingRight": "16dp",
+              "paddingTop": "6dp",
+              "paddingBottom": "6dp",
+              "item": {
+                "type": "Text",
+                "text": "0 Writes \u2022 Proposal",
+                "fontSize": "24dp",
+                "fontWeight": "600",
+                "color": "#FBBF24"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#111827",
+          "borderColor": "#38BDF8",
+          "borderWidth": "2dp",
+          "borderRadius": "20dp",
+          "paddingLeft": "36dp",
+          "paddingRight": "36dp",
+          "paddingTop": "28dp",
+          "paddingBottom": "28dp",
+          "item": {
+            "type": "Container",
+            "direction": "column",
+            "justifyContent": "center",
+            "items": [
+              {
+                "type": "Text",
+                "text": "${payload.categoryTitle}",
+                "fontSize": "44dp",
+                "fontWeight": "800",
+                "color": "#38BDF8",
+                "maxLines": 1
+              },
+              {
+                "type": "Text",
+                "text": "${payload.details}",
+                "fontSize": "32dp",
+                "fontWeight": "600",
+                "color": "#F9FAFB",
+                "maxLines": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#1F2937",
+          "borderColor": "#F59E0B",
+          "borderWidth": "2dp",
+          "borderRadius": "14dp",
+          "paddingLeft": "24dp",
+          "paddingRight": "24dp",
+          "paddingTop": "14dp",
+          "paddingBottom": "14dp",
+          "item": {
+            "type": "Text",
+            "text": "${payload.voicePrompt}",
+            "fontSize": "28dp",
+            "fontWeight": "700",
+            "color": "#FEF08A",
+            "textAlign": "center",
+            "maxLines": 1
+          }
+        }
+      ]
+    }
+  }
+}

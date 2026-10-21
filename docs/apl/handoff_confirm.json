@@ -1,0 +1,110 @@
+{
+  "type": "APL",
+  "version": "2024.3",
+  "theme": "dark",
+  "description": "Echo Show 8 landscape shift handoff card with two-step safety gate status.",
+  "mainTemplate": {
+    "parameters": [
+      "payload"
+    ],
+    "item": {
+      "type": "Container",
+      "width": "100%",
+      "height": "100%",
+      "backgroundColor": "#0B0F19",
+      "paddingLeft": "48dp",
+      "paddingRight": "48dp",
+      "paddingTop": "36dp",
+      "paddingBottom": "36dp",
+      "justifyContent": "spaceBetween",
+      "items": [
+        {
+          "type": "Container",
+          "direction": "row",
+          "alignItems": "center",
+          "justifyContent": "spaceBetween",
+          "items": [
+            {
+              "type": "Text",
+              "text": "${payload.header}",
+              "fontSize": "26dp",
+              "fontWeight": "700",
+              "color": "#818CF8",
+              "maxLines": 1
+            },
+            {
+              "type": "Frame",
+              "backgroundColor": "#312E81",
+              "borderRadius": "8dp",
+              "paddingLeft": "16dp",
+              "paddingRight": "16dp",
+              "paddingTop": "6dp",
+              "paddingBottom": "6dp",
+              "item": {
+                "type": "Text",
+                "text": "Shift Handoff",
+                "fontSize": "24dp",
+                "fontWeight": "600",
+                "color": "#C7D2FE"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#1E1B4B",
+          "borderColor": "#6366F1",
+          "borderWidth": "2dp",
+          "borderRadius": "20dp",
+          "paddingLeft": "36dp",
+          "paddingRight": "36dp",
+          "paddingTop": "28dp",
+          "paddingBottom": "28dp",
+          "item": {
+            "type": "Container",
+            "direction": "column",
+            "justifyContent": "center",
+            "items": [
+              {
+                "type": "Text",
+                "text": "${payload.seniorContext}",
+                "fontSize": "40dp",
+                "fontWeight": "800",
+                "color": "#FFFFFF",
+                "maxLines": 1
+              },
+              {
+                "type": "Text",
+                "text": "${payload.notes}",
+                "fontSize": "28dp",
+                "fontWeight": "600",
+                "color": "#E0E7FF",
+                "maxLines": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#1F2937",
+          "borderColor": "#10B981",
+          "borderWidth": "2dp",
+          "borderRadius": "14dp",
+          "paddingLeft": "24dp",
+          "paddingRight": "24dp",
+          "paddingTop": "14dp",
+          "paddingBottom": "14dp",
+          "item": {
+            "type": "Text",
+            "text": "${payload.statusText}",
+            "fontSize": "26dp",
+            "fontWeight": "700",
+            "color": "#6EE7B7",
+            "textAlign": "center",
+            "maxLines": 1
+          }
+        }
+      ]
+    }
+  }
+}

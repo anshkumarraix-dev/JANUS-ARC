@@ -1,0 +1,10 @@
+{
+  "payload": {
+    "header": "Margaret Vance \u2022 Routine Proposal",
+    "categoryTitle": "\ud83d\udca7 Hydration",
+    "details": "500ml Water recorded by senior_voice",
+    "voicePrompt": "Say: 'Alexa, confirm' to record to daily timeline",
+    "senior_id": "margaret_01",
+    "transaction_id": "tx_sample_123456"
+  }
+}

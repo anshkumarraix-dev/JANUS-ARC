@@ -1,0 +1,108 @@
+{
+  "type": "APL",
+  "version": "2024.3",
+  "theme": "dark",
+  "description": "Echo Show 8 landscape caregiver wellness timeline card summarizing elder daily routines.",
+  "mainTemplate": {
+    "parameters": [
+      "payload"
+    ],
+    "item": {
+      "type": "Container",
+      "width": "100%",
+      "height": "100%",
+      "backgroundColor": "#0B0F19",
+      "paddingLeft": "48dp",
+      "paddingRight": "48dp",
+      "paddingTop": "36dp",
+      "paddingBottom": "36dp",
+      "justifyContent": "spaceBetween",
+      "items": [
+        {
+          "type": "Container",
+          "direction": "row",
+          "alignItems": "center",
+          "justifyContent": "spaceBetween",
+          "items": [
+            {
+              "type": "Text",
+              "text": "${payload.header}",
+              "fontSize": "26dp",
+              "fontWeight": "700",
+              "color": "#94A3B8",
+              "maxLines": 1
+            },
+            {
+              "type": "Frame",
+              "backgroundColor": "#064E3B",
+              "borderRadius": "8dp",
+              "paddingLeft": "16dp",
+              "paddingRight": "16dp",
+              "paddingTop": "6dp",
+              "paddingBottom": "6dp",
+              "item": {
+                "type": "Text",
+                "text": "Caregiver Timeline",
+                "fontSize": "24dp",
+                "fontWeight": "600",
+                "color": "#34D399"
+              }
+            }
+          ]
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#0F291E",
+          "borderColor": "#10B981",
+          "borderWidth": "2dp",
+          "borderRadius": "20dp",
+          "paddingLeft": "36dp",
+          "paddingRight": "36dp",
+          "paddingTop": "28dp",
+          "paddingBottom": "28dp",
+          "item": {
+            "type": "Container",
+            "direction": "column",
+            "justifyContent": "center",
+            "items": [
+              {
+                "type": "Text",
+                "text": "${payload.completionRate}",
+                "fontSize": "48dp",
+                "fontWeight": "800",
+                "color": "#10B981",
+                "maxLines": 1
+              },
+              {
+                "type": "Text",
+                "text": "${payload.summaryDetails}",
+                "fontSize": "30dp",
+                "fontWeight": "600",
+                "color": "#FFFFFF",
+                "maxLines": 2
+              }
+            ]
+          }
+        },
+        {
+          "type": "Frame",
+          "backgroundColor": "#1E293B",
+          "borderRadius": "14dp",
+          "paddingLeft": "24dp",
+          "paddingRight": "24dp",
+          "paddingTop": "14dp",
+          "paddingBottom": "14dp",
+          "item": {
+            "type": "Text",
+            "text": "${payload.timelineStatus}",
+            "fontSize": "26dp",
+            "fontWeight": "600",
+            "color": "#CBD5E1",
+            "textAlign": "center",
+            "maxLines": 1
+          }
+        }
+      ]
+    }
+  }
+}

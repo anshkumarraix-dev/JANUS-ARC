@@ -1,0 +1,11 @@
+{
+  "payload": {
+    "header": "Shift Handoff \u2022 David \u2192 Sarah",
+    "seniorContext": "Senior: Margaret Vance",
+    "notes": "Margaret walked 20m in garden; afternoon water reminder given.",
+    "statusText": "\u2705 Shift Handed Off to SQLite",
+    "senior_id": "margaret_01",
+    "transaction_id": "tx_sample_789012",
+    "confirmed": true
+  }
+}

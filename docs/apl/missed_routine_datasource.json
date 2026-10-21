@@ -1,0 +1,11 @@
+{
+  "payload": {
+    "header": "Gentle Reminder \u2022 Margaret Vance",
+    "routineTitle": "Afternoon Hydration Window",
+    "windowTime": "Scheduled: 2:00 PM - 4:00 PM",
+    "voicePrompt": "Whenever you're ready, say: 'Alexa, I drank water'",
+    "urgency": "medium",
+    "is_missed": true,
+    "senior_id": "margaret_01"
+  }
+}
