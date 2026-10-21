@@ -166,7 +166,7 @@ async def test_confirm_false_never_writes(isolated_gate_db):
         payload={
             "departing_caregiver": "David",
             "incoming_caregiver": "Sarah",
-            "handoff_notes": "Morning vitals stable",
+            "handoff_notes": "Morning routines completed on schedule",
         },
     )
     assert preview_handoff["status"] == "PROPOSAL_PREVIEW"
