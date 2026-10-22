@@ -29,6 +29,24 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 21:48:00 IST] - Fix Caregiver 3s Polling Speech Loop, Add callMCPTool speak Option, Voice Toggle, 8s Dedupe & Static Tests
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Bugfix & Frontend Robustness
+- **Files Modified / Created**:
+  - `simulator/index.html` (Fixed background caregiver dashboard polling loop: `pollCaregiverSummary` now explicitly passes `onSuccess`, `speak: false`, and `silent: true`, eliminating unwanted `handleToolSuccess` execution that repainted `#screen-body` and triggered speech; added `speak` option to `callMCPTool` guarding all speech and screen-body mutations so only user-initiated calls may speak or alter the senior screen; implemented 8-second deduplication in `setAlexaSpeaking` for identical text; added visible in-memory Voice ON/OFF toggle in `.hud-bar`; replaced hardcoded "Margaret's summary" speech with active senior display name; restored timeline card in `dismissToDefaultSummary`).
+  - `tests/test_simulator.py` (Added 5 static invariant tests verifying `pollCaregiverSummary` passes `onSuccess` and `speak: false`, fails if `onSuccess` is omitted, asserts `callMCPTool` guards speaking/screen-body behind `speak`, asserts `setAlexaSpeaking` enforces 8-second deduplication window, asserts status bar Voice toggle exists in memory with no localStorage, and asserts summary speech uses dynamic senior name).
+- **Diff / Summary of Changes**:
+  - Pass `onSuccess` callback in `pollCaregiverSummary` so background sync only updates caregiver metrics and slots without touching Echo Show UI.
+  - Guard `setAlexaSpeaking`, `renderRefusalCard`, and `renderErrorCard` in `callMCPTool` with `Boolean(options.speak)`.
+  - Add `isVoiceEnabled` toggle with `#hud-voice-toggle` button in `.hud-bar`, styled with green/rose status indicator (default ON, memory-only).
+  - Add `lastSpokenText` and `lastSpokenTime` tracking in `setAlexaSpeaking` with `< 8000ms` identical text suppression.
+  - Bind dynamic `result.senior_name || getSeniorDisplayName()` to summary speech template.
+- **Verification / Tests Passed**:
+  - `pytest -q tests/test_simulator.py`: `14 passed in 0.10s`.
+  - `pytest -q`: `70 passed in 10.33s` (100% pass across all test modules).
+- **Impact & Next Steps**:
+  - Echo Show 8 viewport remains rock-solid during background polling, background audio loop is eliminated, and users have immediate one-click voice muting via the status bar toggle.
+
 ### [2026-10-22 15:15:00 IST] - Simulator Role Switcher, Visible 3-Step MCP Tool Call Trace, and Refusal Invariant Verification
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Frontend Feature & Transparency Enhancement
