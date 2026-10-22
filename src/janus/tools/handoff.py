@@ -27,7 +27,7 @@ class RoutineStateVerifyRequest(JanusBaseModel):
     confirm: bool = Field(False, description="Confirmation flag (False = preview proposal; True = atomic commit)")
     transaction_id: Optional[str] = Field(None, description="Transaction ID of a live pending proposal (tx_...). Required when confirm=True")
     senior_id: Optional[str] = Field(None, description="Target senior profile ID for creating a new proposal")
-    action_type: Optional[str] = Field("shift_handoff", description="Action type ('shift_handoff', 'routine_log')")
+    action_type: Optional[str] = Field(None, description="Action type ('shift_handoff', 'routine_log')")
     payload: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Payload containing action parameters when creating a proposal")
 
 

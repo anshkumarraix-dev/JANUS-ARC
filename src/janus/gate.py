@@ -17,6 +17,11 @@ from janus.errors import (
     InvalidCategoryError,
     ProposalExpiredError,
     ProposalNotFoundError,
+    SafetyBlockedError,
+)
+from janus.safety import (
+    SafetyOutcome,
+    assess_safety,
 )
 
 
@@ -43,12 +48,26 @@ class ConfirmationGate:
         now: Optional[datetime] = None,
     ) -> Dict[str, Any]:
         """Generate a read-only proposal preview (0 database mutations to logs or handoffs)."""
-        # Validate category if routine_log
+        # Medical Safety Policy Check before proposal creation
         if action_type == "routine_log":
             cat = payload.get("category") or payload.get("routine_type")
+            details = payload.get("details") or payload.get("notes") or ""
+            # If details contains emergency, block immediately with highest priority
+            if details:
+                safety_res = assess_safety(details, category=cat)
+                if safety_res.outcome == SafetyOutcome.EMERGENCY_GUIDANCE:
+                    raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
             if not cat:
                 raise InvalidCategoryError("empty")
             payload["category"] = validate_category(cat)
+            safety_res = assess_safety(details, category=payload["category"])
+            if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+                raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
+        elif action_type == "shift_handoff":
+            notes = payload.get("handoff_notes") or ""
+            safety_res = assess_safety(notes, category="wellness")
+            if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+                raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
 
         return create_proposal(
             senior_id=senior_id,

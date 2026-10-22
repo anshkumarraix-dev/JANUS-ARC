@@ -20,6 +20,10 @@ class ErrorCode:
     INVALID_ARGUMENTS = "INVALID_ARGUMENTS"
     FORBIDDEN = "FORBIDDEN"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    # Shared Medical Safety Policy Outcomes
+    EMERGENCY_GUIDANCE = "EMERGENCY_GUIDANCE"
+    MEDICAL_ACTION_BLOCKED = "MEDICAL_ACTION_BLOCKED"
+    CLARIFICATION_REQUIRED = "CLARIFICATION_REQUIRED"
 
 
 HUMAN_SAFE_MESSAGES = {
@@ -48,6 +52,19 @@ HUMAN_SAFE_MESSAGES = {
     ),
     ErrorCode.INTERNAL_ERROR: (
         "A server error occurred while processing the request. Please try again."
+    ),
+    ErrorCode.EMERGENCY_GUIDANCE: (
+        "Immediate emergency guidance: If you or someone nearby is experiencing a medical emergency, "
+        "call 911 (or your local emergency services) immediately. Do not wait."
+    ),
+    ErrorCode.MEDICAL_ACTION_BLOCKED: (
+        "JANUS cannot recommend, adjust, or record changes to medication dosages, prescriptions, "
+        "or medical treatments. Please contact your prescribing physician, pharmacist, "
+        "or qualified healthcare professional."
+    ),
+    ErrorCode.CLARIFICATION_REQUIRED: (
+        "This request involves health symptoms or ambiguous medical matters that cannot be recorded "
+        "as a routine living activity. Please clarify your request or consult a caregiver or qualified healthcare provider."
     ),
 }
 
@@ -109,3 +126,12 @@ class ForbiddenOperationError(JanusError):
             code=ErrorCode.FORBIDDEN,
             message=reason,
         )
+
+
+class SafetyBlockedError(JanusError):
+    """Raised when an operation is blocked by the shared medical safety policy."""
+
+    def __init__(self, outcome: str, message: str, rule: Optional[str] = None) -> None:
+        super().__init__(code=outcome, message=message, details=rule)
+        self.outcome = outcome
+        self.rule = rule
