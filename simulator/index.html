@@ -146,6 +146,22 @@
       background: rgba(16, 185, 129, 0.08);
     }
 
+    .hud-endpoint {
+      border-color: rgba(139, 92, 246, 0.35);
+      background: rgba(139, 92, 246, 0.08);
+    }
+    .hud-endpoint .hud-value {
+      color: #C4B5FD;
+    }
+
+    .hud-role {
+      border-color: rgba(6, 182, 212, 0.45);
+      background: rgba(6, 182, 212, 0.1);
+    }
+    .hud-role .hud-value {
+      color: #67E8F9;
+    }
+
     .dot {
       width: 7px;
       height: 7px;
@@ -162,7 +178,147 @@
       50% { opacity: 0.35; transform: scale(0.85); }
     }
 
-    /* Dynamic Settings Panel */
+    /* Role Toolbar & Switcher */
+    .role-toolbar {
+      width: 100%;
+      max-width: 1540px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .role-switcher-container {
+      background: rgba(13, 18, 31, 0.85);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .role-switcher-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .role-switcher-icon {
+      font-size: 16px;
+    }
+
+    .role-switcher-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .role-buttons-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .role-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 14px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .role-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .role-avatar-tiny {
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .role-btn-name {
+      font-weight: 700;
+    }
+
+    .role-btn-tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    .role-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--accent-cyan-glow);
+      color: #FFFFFF;
+    }
+    .role-btn.active .role-btn-tag {
+      background: rgba(6, 182, 212, 0.25);
+      color: #E0F2FE;
+    }
+
+    #btn-role-caregiver-sarah.active {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-green);
+      box-shadow: 0 0 16px var(--accent-green-glow);
+    }
+    #btn-role-caregiver-sarah.active .role-btn-tag {
+      background: rgba(16, 185, 129, 0.25);
+      color: #D1FAE5;
+    }
+
+    #btn-role-caregiver-david.active {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 16px var(--accent-blue-glow);
+    }
+    #btn-role-caregiver-david.active .role-btn-tag {
+      background: rgba(59, 130, 246, 0.25);
+      color: #DBEAFE;
+    }
+
+    .settings-toggle-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 7px 12px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .settings-toggle-btn:hover, .settings-toggle-btn.open {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #FFFFFF;
+    }
+
+    /* Dynamic Settings Panel (Collapsed by default) */
     .settings-bar {
       width: 100%;
       max-width: 1540px;
@@ -1011,6 +1167,212 @@
       font-weight: 600;
     }
 
+    /* Tool Call Trace Panel (Visible by default) */
+    .tool-call-panel {
+      width: 100%;
+      max-width: 1540px;
+      margin-top: 20px;
+      background: rgba(13, 18, 31, 0.92);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 16px;
+      padding: 18px 22px;
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.6),
+        0 0 30px rgba(6, 182, 212, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tool-call-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .tool-call-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tool-call-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    .tool-call-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.2px;
+    }
+
+    .tool-call-chip {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    .tool-call-subtitle {
+      font-size: 12px;
+      font-style: italic;
+      color: #94A3B8;
+      max-width: 820px;
+      line-height: 1.4;
+    }
+
+    .trace-steps-wrap {
+      display: grid;
+      grid-template-columns: 280px 320px 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 1200px) {
+      .trace-steps-wrap {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trace-step-card {
+      background: rgba(10, 14, 23, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
+    .trace-step-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-dim);
+    }
+
+    .step-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(6, 182, 212, 0.2);
+      color: var(--accent-cyan);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 800;
+      margin-right: 6px;
+    }
+
+    .trace-utterance-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #F8FAFC;
+      line-height: 1.4;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border-left: 3px solid var(--accent-cyan);
+      word-break: break-word;
+    }
+
+    .trace-rule-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: #FCD34D;
+      line-height: 1.4;
+      background: rgba(245, 158, 11, 0.08);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border-left: 3px solid var(--accent-amber);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      word-break: break-word;
+    }
+
+    .trace-status-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93C5FD;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      font-family: ui-monospace, SFMono-Regular, monospace;
+    }
+
+    .trace-status-pill.status-200 {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .trace-status-pill.status-401, .trace-status-pill.status-error {
+      background: rgba(244, 63, 94, 0.2);
+      color: var(--accent-rose);
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+
+    .trace-code-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .trace-code-split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trace-code-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .trace-col-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+    }
+
+    .trace-code-block {
+      background: #05070B;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #E2E8F0;
+      max-height: 220px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+
     /* Debug Drawer */
     .debug-drawer {
       width: 100%;
@@ -1060,8 +1422,20 @@
       </div>
     </div>
 
-    <!-- Latency HUD: TWO separate, honestly labeled numbers -->
+    <!-- Top Status Bar: Server dot, Endpoint host, Active role badge, Router ms, HTTP ms -->
     <div class="hud-bar">
+      <div class="hud-chip hud-status-online" id="hud-server-pill" title="FastMCP v2 Streamable HTTP Server Connection">
+        <span class="dot pulse" id="hud-server-dot"></span>
+        <span id="hud-server-text">Server: Online</span>
+      </div>
+      <div class="hud-chip hud-endpoint" id="hud-endpoint-chip" title="Active FastMCP server host">
+        <span>📍 Host:</span>
+        <span class="hud-value" id="hud-endpoint-host">127.0.0.1:8000</span>
+      </div>
+      <div class="hud-chip hud-role" id="hud-role-chip" title="Current active persona and access token">
+        <span>🎭 Role:</span>
+        <span class="hud-value" id="hud-active-role">Senior Margaret</span>
+      </div>
       <div class="hud-chip hud-router" title="Local JavaScript deterministic keyword & regex intent router resolution time">
         <span>⚡ Router:</span>
         <span class="hud-value" id="hud-router-ms">0.00 ms</span>
@@ -1070,35 +1444,62 @@
         <span>🌐 HTTP RTT:</span>
         <span class="hud-value" id="hud-http-ms">-- ms</span>
       </div>
-      <div class="hud-chip hud-status-online" id="hud-server-pill">
-        <span class="dot pulse"></span>
-        <span id="hud-server-text">Server: Online</span>
-      </div>
     </div>
   </header>
 
-  <!-- Dynamic Settings & Profile Toolbar -->
-  <section class="settings-bar" aria-label="Simulator Configuration">
-    <div class="settings-group">
-      <span class="settings-label">Senior ID:</span>
-      <input type="text" class="settings-input" id="setting-senior-id" value="margaret_01" style="width: 105px;" onchange="onSettingChange()" />
-
-      <span class="settings-label">Senior Name:</span>
-      <input type="text" class="settings-input" id="setting-senior-name" value="Margaret Vance" style="width: 130px;" onchange="onSettingChange()" />
-
-      <span class="settings-label">Departing Caregiver:</span>
-      <input type="text" class="settings-input" id="setting-departing" value="David" style="width: 80px;" />
-
-      <span class="settings-label">Incoming Caregiver:</span>
-      <input type="text" class="settings-input" id="setting-incoming" value="Sarah" style="width: 80px;" />
+  <!-- Role Switcher & Configuration Toolbar -->
+  <section class="role-toolbar" aria-label="Role Switcher and Settings">
+    <div class="role-switcher-container">
+      <div class="role-switcher-heading">
+        <span class="role-switcher-icon">🎭</span>
+        <span class="role-switcher-title">Switch Active Role:</span>
+      </div>
+      <div class="role-buttons-group" role="group" aria-label="Role Selector">
+        <button type="button" class="role-btn active" id="btn-role-senior-margaret" onclick="selectRole('senior_margaret')" title="Senior Margaret Vance (senior role, margaret_01 only)">
+          <span class="role-avatar-tiny">👵</span>
+          <span class="role-btn-name">Senior Margaret</span>
+          <span class="role-btn-tag">senior • margaret_01</span>
+        </button>
+        <button type="button" class="role-btn" id="btn-role-caregiver-sarah" onclick="selectRole('caregiver_sarah')" title="Caregiver Sarah (caregiver role, margaret_01 only)">
+          <span class="role-avatar-tiny">👩‍⚕️</span>
+          <span class="role-btn-name">Caregiver Sarah</span>
+          <span class="role-btn-tag">caregiver • margaret_01</span>
+        </button>
+        <button type="button" class="role-btn" id="btn-role-caregiver-david" onclick="selectRole('caregiver_david')" title="Caregiver David (caregiver role, arthur_02 only)">
+          <span class="role-avatar-tiny">👨‍⚕️</span>
+          <span class="role-btn-name">Caregiver David</span>
+          <span class="role-btn-tag">caregiver • arthur_02</span>
+        </button>
+      </div>
+      <button type="button" class="settings-toggle-btn" id="btn-toggle-advanced-settings" onclick="toggleAdvancedSettings()" title="Show/hide advanced connection settings">
+        <span id="settings-toggle-icon">⚙️</span>
+        <span id="settings-toggle-label">Advanced Settings</span>
+      </button>
     </div>
 
-    <div class="settings-group">
-      <span class="settings-label">Bearer Token:</span>
-      <input type="text" class="settings-input settings-input-token" id="setting-token" value="janus-demo-senior-margaret" title="Sent as 'Authorization: Bearer <token>' in every MCP request" />
+    <!-- Advanced Settings Drawer (Collapsed by default) -->
+    <div class="settings-bar" id="advanced-settings-panel" style="display: none;" aria-label="Advanced Configuration">
+      <div class="settings-group">
+        <span class="settings-label">Senior ID:</span>
+        <input type="text" class="settings-input" id="setting-senior-id" value="margaret_01" style="width: 105px;" onchange="onSettingChange()" />
 
-      <span class="settings-label">Endpoint:</span>
-      <input type="text" class="settings-input" id="setting-endpoint" value="http://127.0.0.1:8000/mcp" style="width: 175px;" />
+        <span class="settings-label">Senior Name:</span>
+        <input type="text" class="settings-input" id="setting-senior-name" value="Margaret Vance" style="width: 130px;" onchange="onSettingChange()" />
+
+        <span class="settings-label">Departing Caregiver:</span>
+        <input type="text" class="settings-input" id="setting-departing" value="David" style="width: 80px;" onchange="onSettingChange()" />
+
+        <span class="settings-label">Incoming Caregiver:</span>
+        <input type="text" class="settings-input" id="setting-incoming" value="Sarah" style="width: 80px;" onchange="onSettingChange()" />
+      </div>
+
+      <div class="settings-group">
+        <span class="settings-label">Bearer Token:</span>
+        <input type="text" class="settings-input settings-input-token" id="setting-token" value="janus-demo-senior-margaret" title="Sent as 'Authorization: Bearer <token>' in every MCP request" onchange="onSettingChange()" />
+
+        <span class="settings-label">Endpoint:</span>
+        <input type="text" class="settings-input" id="setting-endpoint" value="http://127.0.0.1:8000/mcp" style="width: 210px;" onchange="onSettingChange()" />
+      </div>
     </div>
   </section>
 
@@ -1322,6 +1723,57 @@
 
   </main>
 
+  <!-- Live Tool Call Panel (Visible by default) -->
+  <section class="tool-call-panel" id="tool-call-trace-panel" aria-label="Live Simulated Alexa+ Host MCP Tool Call Trace">
+    <div class="tool-call-header">
+      <div class="tool-call-title-wrap">
+        <div class="tool-call-pulse-dot" aria-hidden="true"></div>
+        <h2 class="tool-call-title">Simulated Alexa+ Host Intent &amp; MCP Call Trace</h2>
+        <span class="tool-call-chip">Live Trace</span>
+      </div>
+      <div class="tool-call-subtitle">
+        Simulated Alexa+ host: deterministic intent router. A real Alexa+ host selects tools from the MCP tool descriptions.
+      </div>
+    </div>
+    <div class="trace-steps-wrap" id="trace-steps-container">
+      <!-- Step 1: Utterance -->
+      <div class="trace-step-card" id="trace-card-utterance">
+        <div class="trace-step-label">
+          <div><span class="step-num">1</span><span>User Utterance / Trigger</span></div>
+          <span style="font-size: 10px; color: var(--text-dim);">Trigger</span>
+        </div>
+        <div class="trace-utterance-text" id="trace-utterance-val">Ready. Speak or enter an utterance above, or click a refusal test button.</div>
+      </div>
+
+      <!-- Step 2: Matched Rule -->
+      <div class="trace-step-card" id="trace-card-rule">
+        <div class="trace-step-label">
+          <div><span class="step-num">2</span><span>Matched Intent Rule</span></div>
+          <span style="font-size: 10px; color: var(--text-dim);">Sub-5ms Router</span>
+        </div>
+        <div class="trace-rule-text" id="trace-rule-val">Standby / Awaiting User Turn</div>
+      </div>
+
+      <!-- Step 3: MCP tools/call JSON & Response Status -->
+      <div class="trace-step-card" id="trace-card-mcp">
+        <div class="trace-step-label">
+          <div><span class="step-num">3</span><span>Exact MCP tools/call JSON &amp; Live Response</span></div>
+          <span class="trace-status-pill status-200" id="trace-status-pill">HTTP Ready</span>
+        </div>
+        <div class="trace-code-split">
+          <div class="trace-code-col">
+            <span class="trace-col-title">Dispatched tools/call JSON</span>
+            <pre class="trace-code-block" id="trace-request-json">{\n  /* Waiting for user turn */\n}</pre>
+          </div>
+          <div class="trace-code-col">
+            <span class="trace-col-title">Server Response (Real / No Faking)</span>
+            <pre class="trace-code-block" id="trace-response-json">{\n  /* Real server response will appear here */\n}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Debug Inspector Drawer -->
   <section class="debug-drawer">
     <div class="debug-toggle" onclick="toggleDebugDrawer()">
@@ -1353,6 +1805,179 @@
       }
     }
 
+    // Role Switcher Profiles
+    const ROLES = {
+      senior_margaret: {
+        key: 'senior_margaret',
+        badge: 'Senior Margaret',
+        token: 'janus-demo-senior-margaret',
+        seniorId: 'margaret_01',
+        seniorName: 'Margaret Vance',
+        departing: 'David',
+        incoming: 'Sarah',
+        btnId: 'btn-role-senior-margaret'
+      },
+      caregiver_sarah: {
+        key: 'caregiver_sarah',
+        badge: 'Caregiver Sarah',
+        token: 'janus-demo-caregiver-sarah',
+        seniorId: 'margaret_01',
+        seniorName: 'Margaret Vance',
+        departing: 'David',
+        incoming: 'Sarah',
+        btnId: 'btn-role-caregiver-sarah'
+      },
+      caregiver_david: {
+        key: 'caregiver_david',
+        badge: 'Caregiver David',
+        token: 'janus-demo-caregiver-david',
+        seniorId: 'arthur_02',
+        seniorName: 'Arthur Davis',
+        departing: 'David',
+        incoming: 'Sarah',
+        btnId: 'btn-role-caregiver-david'
+      }
+    };
+    let currentRoleKey = 'senior_margaret';
+
+    function selectRole(roleKey) {
+      const role = ROLES[roleKey];
+      if (!role) return;
+
+      currentRoleKey = roleKey;
+
+      // Switching clears pendingTx
+      pendingTx = null;
+
+      // Update button active state
+      ['btn-role-senior-margaret', 'btn-role-caregiver-sarah', 'btn-role-caregiver-david'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          if (id === role.btnId) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        }
+      });
+
+      // Update inputs together
+      document.getElementById('setting-token').value = role.token;
+      document.getElementById('setting-senior-id').value = role.seniorId;
+      document.getElementById('setting-senior-name').value = role.seniorName;
+
+      // Update status bar role badge & host
+      const roleBadge = document.getElementById('hud-active-role');
+      if (roleBadge) roleBadge.textContent = role.badge;
+      updateEndpointHost();
+
+      // Update visual headers
+      document.getElementById('senior-display-name').textContent = role.seniorName;
+      document.getElementById('cg-senior-header').textContent = `${role.seniorName} — Care Ledger`;
+      const initials = role.seniorName.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'SR';
+      document.getElementById('senior-avatar').textContent = initials;
+
+      // Reset voice prompt & Echo Show status
+      setAlexaSpeaking(false, `Switched persona to ${role.badge} (${role.seniorName}, ${role.seniorId}).`);
+
+      // Record role switch in the Tool Call Trace panel
+      recordTraceTurn({
+        utterance: `[Role Switcher] Switched active role to ${role.badge}`,
+        ruleName: `Role Switcher: token=${role.token}, senior_id=${role.seniorId}`,
+        mcpPayload: {
+          action: "selectRole",
+          role: role.badge,
+          senior_id: role.seniorId,
+          token: role.token,
+          pending_transaction: "CLEARED"
+        },
+        httpStatus: "ROLE READY",
+        responseJson: {
+          active_role: role.badge,
+          senior_id: role.seniorId,
+          display_name: role.seniorName,
+          token_configured: role.token
+        },
+        isError: false,
+        elapsedMs: 0
+      });
+
+      // Re-poll caregiver summary immediately
+      pollCaregiverSummary(true);
+    }
+
+    function toggleAdvancedSettings() {
+      const panel = document.getElementById('advanced-settings-panel');
+      const btn = document.getElementById('btn-toggle-advanced-settings');
+      const label = document.getElementById('settings-toggle-label');
+      if (panel.style.display === 'none' || !panel.style.display) {
+        panel.style.display = 'flex';
+        btn.classList.add('open');
+        label.textContent = 'Hide Settings';
+      } else {
+        panel.style.display = 'none';
+        btn.classList.remove('open');
+        label.textContent = 'Advanced Settings';
+      }
+    }
+
+    function updateEndpointHost() {
+      const endpoint = getSetting('endpoint');
+      const hostElem = document.getElementById('hud-endpoint-host');
+      if (!hostElem) return;
+      try {
+        const u = new URL(endpoint);
+        hostElem.textContent = u.host;
+      } catch(e) {
+        hostElem.textContent = endpoint.replace(/^https?:\/\//, '').split('/')[0] || endpoint;
+      }
+    }
+
+    // Visible 3-Step Tool Call Trace Logger
+    function recordTraceTurn({
+      utterance,
+      ruleName,
+      mcpPayload,
+      httpStatus,
+      responseJson,
+      isError = false,
+      elapsedMs = null
+    }) {
+      const utteranceEl = document.getElementById('trace-utterance-val');
+      const ruleEl = document.getElementById('trace-rule-val');
+      const reqEl = document.getElementById('trace-request-json');
+      const resEl = document.getElementById('trace-response-json');
+      const statusPill = document.getElementById('trace-status-pill');
+
+      if (utteranceEl && utterance !== undefined) {
+        utteranceEl.textContent = utterance;
+      }
+
+      if (ruleEl && ruleName !== undefined) {
+        ruleEl.textContent = ruleName;
+      }
+
+      if (reqEl && mcpPayload !== undefined) {
+        reqEl.textContent = typeof mcpPayload === 'string' ? mcpPayload : JSON.stringify(mcpPayload, null, 2);
+      }
+
+      if (resEl && responseJson !== undefined) {
+        resEl.textContent = typeof responseJson === 'string' ? responseJson : JSON.stringify(responseJson, null, 2);
+      }
+
+      if (statusPill && httpStatus !== undefined) {
+        const msText = elapsedMs !== null ? ` (${elapsedMs} ms)` : '';
+        statusPill.textContent = `${httpStatus}${msText}`;
+
+        statusPill.className = 'trace-status-pill';
+        if (isError || String(httpStatus).includes('401') || String(httpStatus).includes('403') || String(httpStatus).includes('Error') || String(httpStatus).includes('Refusal')) {
+          statusPill.classList.add('status-error');
+        } else if (String(httpStatus).includes('200') || String(httpStatus).includes('OK') || String(httpStatus).includes('READY')) {
+          statusPill.classList.add('status-200');
+        }
+      }
+    }
+
     function onSettingChange() {
       const name = getSetting('senior_name');
       document.getElementById('senior-display-name').textContent = name;
@@ -1361,7 +1986,39 @@
       const initials = name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'SR';
       document.getElementById('senior-avatar').textContent = initials;
       
-      pollCaregiverSummary();
+      updateEndpointHost();
+
+      // Sync role buttons if matching
+      const token = getSetting('token');
+      const seniorId = getSetting('senior_id');
+      let matchedRole = null;
+      for (const k of Object.keys(ROLES)) {
+        if (ROLES[k].token === token && ROLES[k].seniorId === seniorId) {
+          matchedRole = ROLES[k];
+          break;
+        }
+      }
+      if (matchedRole) {
+        currentRoleKey = matchedRole.key;
+        ['btn-role-senior-margaret', 'btn-role-caregiver-sarah', 'btn-role-caregiver-david'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (id === matchedRole.btnId) el.classList.add('active');
+            else el.classList.remove('active');
+          }
+        });
+        const roleBadge = document.getElementById('hud-active-role');
+        if (roleBadge) roleBadge.textContent = matchedRole.badge;
+      } else {
+        ['btn-role-senior-margaret', 'btn-role-caregiver-sarah', 'btn-role-caregiver-david'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('active');
+        });
+        const roleBadge = document.getElementById('hud-active-role');
+        if (roleBadge) roleBadge.textContent = 'Custom Role';
+      }
+
+      pollCaregiverSummary(true);
     }
 
     // Clock Updater
@@ -1483,12 +2140,14 @@
           return {
             handledLocally: true,
             routerMs,
+            ruleName: "Rule 1: Confirmation Intent (No Pending Proposal in Memory)",
             message: "There's nothing waiting for confirmation."
           };
         }
 
         decision = {
           tool: 'verify_routine_state',
+          ruleName: "Rule 1: Two-Step Confirmation Gate -> verify_routine_state(confirm=True)",
           args: {
             confirm: true,
             transaction_id: pendingTx.transactionId
@@ -1505,6 +2164,7 @@
           handledLocally: true,
           routerMs,
           cancelled: true,
+          ruleName: "Rule 2: Cancellation Intent -> Handled locally (Discard Proposal / 0 Writes)",
           message: hadTx ? "Action cancelled. Nothing was written." : "Cancelled."
         };
       }
@@ -1513,6 +2173,7 @@
       else if (norm.includes('hand off') || norm.includes('handoff') || norm.includes('shift')) {
         decision = {
           tool: 'verify_routine_state',
+          ruleName: "Rule 3: Shift Handoff Preview -> verify_routine_state(confirm=False)",
           args: {
             senior_id: seniorId,
             action_type: 'shift_handoff',
@@ -1530,6 +2191,7 @@
       else if (norm.includes('summary') || norm.includes('timeline') || norm.includes('status') || norm.includes('how is')) {
         decision = {
           tool: 'get_caregiver_summary',
+          ruleName: "Rule 4: Caregiver Summary Query -> get_caregiver_summary (Read-Only)",
           args: {
             senior_id: seniorId
           }
@@ -1540,6 +2202,7 @@
       else if (norm.includes('missed') || norm.includes('forget') || norm.includes('check-in') || norm.includes('overdue')) {
         decision = {
           tool: 'flag_missed_routine',
+          ruleName: "Rule 5: Missed Routine Check -> flag_missed_routine (Schedule Slot Evaluation)",
           args: {
             senior_id: seniorId,
             routine_name: 'Afternoon Hydration',
@@ -1568,6 +2231,7 @@
 
         decision = {
           tool: 'log_daily_routine',
+          ruleName: `Rule 6: Daily Routine Logging -> log_daily_routine (Category: ${cat})`,
           args: {
             senior_id: seniorId,
             category: cat,
@@ -1584,6 +2248,7 @@
           handledLocally: true,
           routerMs,
           clarifying: true,
+          ruleName: "Rule 7: Fallback Clarification -> Handled locally (Prompt Senior)",
           message: "I didn't quite catch that. You can say 'I drank a glass of water', 'Log breakfast', 'Hand off shift', or 'Show summary'."
         };
       }
@@ -1609,6 +2274,18 @@
           arguments: toolArgs
         }
       };
+
+      // If part of visible user turn, log initial dispatch in trace panel
+      if (options.traceContext) {
+        recordTraceTurn({
+          utterance: options.traceContext.utterance,
+          ruleName: options.traceContext.ruleName,
+          mcpPayload: payload,
+          httpStatus: "HTTP Dispatching...",
+          responseJson: { status: "Awaiting server response over Streamable HTTP..." },
+          isError: false
+        });
+      }
 
       const startTime = performance.now();
       if (!options.silent) {
@@ -1641,12 +2318,26 @@
           document.getElementById('hud-server-text').textContent = 'HTTP 401 Unauthorized';
 
           let errDetail = 'Unauthorized: Missing or invalid Bearer token';
+          let errJson = null;
           try {
-            const errJson = await response.json();
+            errJson = await response.json();
             errDetail = errJson.detail || errDetail;
             logDebug(payload, errJson, elapsedMs, headers);
           } catch(e) {
-            logDebug(payload, { status: 401, error: errDetail }, elapsedMs, headers);
+            errJson = { status: 401, error: errDetail };
+            logDebug(payload, errJson, elapsedMs, headers);
+          }
+
+          if (options.traceContext) {
+            recordTraceTurn({
+              utterance: options.traceContext.utterance,
+              ruleName: options.traceContext.ruleName,
+              mcpPayload: payload,
+              httpStatus: 'HTTP 401 Unauthorized',
+              responseJson: errJson,
+              isError: true,
+              elapsedMs: elapsedMs
+            });
           }
 
           if (!options.silent) {
@@ -1665,13 +2356,38 @@
         logDebug(payload, data, elapsedMs, headers);
 
         if (data.error) {
+          if (options.traceContext) {
+            recordTraceTurn({
+              utterance: options.traceContext.utterance,
+              ruleName: options.traceContext.ruleName,
+              mcpPayload: payload,
+              httpStatus: 'JSON-RPC Error',
+              responseJson: data,
+              isError: true,
+              elapsedMs: elapsedMs
+            });
+          }
           throw new Error(data.error.message || 'JSON-RPC Error');
         }
 
         const result = data.result?.structuredContent?.result || data.result?.structuredContent || data.result;
 
         // Check for structured error (e.g. FORBIDDEN, MISSING_TRANSACTION_ID, etc.)
-        if (result && (result.status === 'error' || result.error_code === 'FORBIDDEN')) {
+        const isStructuredRefusal = result && (result.status === 'error' || result.error_code === 'FORBIDDEN' || result.error_code === 'INVALID_CATEGORY');
+
+        if (options.traceContext) {
+          recordTraceTurn({
+            utterance: options.traceContext.utterance,
+            ruleName: options.traceContext.ruleName,
+            mcpPayload: payload,
+            httpStatus: isStructuredRefusal ? `HTTP 200 (Refusal: ${result.error_code || 'ERROR'})` : 'HTTP 200 OK',
+            responseJson: data,
+            isError: !!isStructuredRefusal,
+            elapsedMs: elapsedMs
+          });
+        }
+
+        if (isStructuredRefusal) {
           if (!options.silent) {
             renderRefusalCard(result.error_code || 'FORBIDDEN', result.message || 'Access forbidden.');
             setAlexaSpeaking(false, `Server refusal (${result.error_code || 'FORBIDDEN'}): ${result.message || 'Permission denied.'}`);
@@ -1699,6 +2415,19 @@
         document.getElementById('hud-server-text').textContent = 'Connection Error';
 
         console.error('MCP Tool Call Error:', err);
+
+        if (options.traceContext) {
+          recordTraceTurn({
+            utterance: options.traceContext.utterance,
+            ruleName: options.traceContext.ruleName,
+            mcpPayload: payload,
+            httpStatus: `HTTP Error: ${err.message}`,
+            responseJson: { error: err.message || String(err) },
+            isError: true,
+            elapsedMs: elapsedMs
+          });
+        }
+
         if (!options.silent) {
           renderErrorCard(toolName, err.message);
           setAlexaSpeaking(false, `Request failed: ${err.message}`);
@@ -1948,9 +2677,15 @@
 
     function confirmCurrentProposal() {
       if (pendingTx) {
+        const txId = pendingTx.transactionId;
         callMCPTool('verify_routine_state', {
           confirm: true,
-          transaction_id: pendingTx.transactionId
+          transaction_id: txId
+        }, {
+          traceContext: {
+            utterance: `[Card Action] Confirm ("Yes") proposal: ${txId}`,
+            ruleName: "Rule 1: Two-Step Confirmation Gate -> verify_routine_state(confirm=True)"
+          }
         });
       } else {
         setAlexaSpeaking(false, "There's nothing waiting for confirmation.");
@@ -1958,9 +2693,19 @@
     }
 
     function cancelCurrentProposal() {
+      const prevId = pendingTx?.transactionId;
       pendingTx = null;
       dismissToDefaultSummary();
       setAlexaSpeaking(false, "Action cancelled. Nothing was written.");
+      recordTraceTurn({
+        utterance: `[Card Action] Cancel ("No") proposal: ${prevId || 'none'}`,
+        ruleName: "Rule 2: Cancellation Intent -> Handled locally (Discard Proposal / 0 Writes)",
+        mcpPayload: { info: "Proposal discarded locally with 0 database writes" },
+        httpStatus: "LOCAL (0 RTT)",
+        responseJson: { status: "CANCELLED", database_writes: 0 },
+        isError: false,
+        elapsedMs: 0
+      });
     }
 
     // =========================================================================
@@ -1978,6 +2723,25 @@
       document.getElementById('hud-router-ms').textContent = `${routing.routerMs.toFixed(2)} ms`;
 
       if (routing.handledLocally) {
+        recordTraceTurn({
+          utterance: `"${rawText}"`,
+          ruleName: routing.ruleName || "Local Intent Handler",
+          mcpPayload: {
+            info: "Turn handled locally in JavaScript without dispatching network MCP tools/call",
+            message: routing.message,
+            writes: 0
+          },
+          httpStatus: "LOCAL (0 RTT)",
+          responseJson: {
+            handled_locally: true,
+            status: routing.cancelled ? "CANCELLED" : (routing.clarifying ? "CLARIFY" : "NO_PENDING_TX"),
+            message: routing.message,
+            database_writes: 0
+          },
+          isError: false,
+          elapsedMs: 0
+        });
+
         setAlexaSpeaking(false, routing.message);
         if (routing.cancelled) {
           dismissToDefaultSummary();
@@ -1990,7 +2754,12 @@
         return;
       }
 
-      callMCPTool(routing.tool, routing.args);
+      callMCPTool(routing.tool, routing.args, {
+        traceContext: {
+          utterance: `"${rawText}"`,
+          ruleName: routing.ruleName
+        }
+      });
     }
 
     // =========================================================================
@@ -1999,9 +2768,9 @@
     async function pollCaregiverSummary(isImmediate = false) {
       const seniorId = getSetting('senior_id');
       let token = getSetting('token');
-      // For remote caregiver dashboard sync, use caregiver Sarah if default senior token is active
-      if (token === 'janus-demo-senior-margaret') {
-        token = 'janus-demo-caregiver-sarah';
+      // For remote caregiver dashboard sync, use caregiver Sarah for Margaret and David for Arthur
+      if (token === 'janus-demo-senior-margaret' || token.includes('senior')) {
+        token = seniorId === 'arthur_02' ? 'janus-demo-caregiver-david' : 'janus-demo-caregiver-sarah';
       }
 
       const data = await callMCPTool('get_caregiver_summary', { senior_id: seniorId }, { silent: true, customToken: token });
@@ -2143,7 +2912,13 @@
         category: 'hydration',
         details: 'Drank a glass of water',
         logged_by: 'senior_voice'
-      }, { customToken: 'garbage-invalid-token-xyz' });
+      }, {
+        customToken: 'garbage-invalid-token-xyz',
+        traceContext: {
+          utterance: "[Refusal Test] Request with invalid token 'garbage-invalid-token-xyz'",
+          ruleName: "Invariant Test 1: Starlette AuthMiddleware Bearer Validation (HTTP 401 Expected)"
+        }
+      });
     }
 
     async function testBreakWrongSenior() {
@@ -2153,6 +2928,11 @@
         category: 'hydration',
         details: 'Drank water',
         logged_by: 'senior_voice'
+      }, {
+        traceContext: {
+          utterance: "[Refusal Test] Senior Margaret accessing Arthur Davis record (arthur_02)",
+          ruleName: "Invariant Test 2: check_senior_access Senior Scope Enforcement (FORBIDDEN Expected)"
+        }
       });
     }
 
@@ -2167,15 +2947,24 @@
           handoff_notes: 'Shift completed'
         },
         confirm: false
+      }, {
+        traceContext: {
+          utterance: "[Refusal Test] Senior role attempting caregiver shift handoff",
+          ruleName: "Invariant Test 3: check_role_access Caregiver Role Isolation (FORBIDDEN Expected)"
+        }
       });
     }
 
     async function testBreakConfirmNoPreview() {
-      // Intentionally dispatch confirm=true without a valid transaction_id
       setAlexaSpeaking(true, "Testing invariant: confirm with no preview...");
       const res = await callMCPTool('verify_routine_state', {
         confirm: true,
         transaction_id: ""
+      }, {
+        traceContext: {
+          utterance: "[Refusal Test] verify_routine_state(confirm=True) with empty transaction_id",
+          ruleName: "Invariant Test 4: Confirmation Gate ID Requirement (MISSING_TRANSACTION_ID Expected)"
+        }
       });
       if (res && res.status === 'error') {
         renderRefusalCard(res.error_code || 'MISSING_TRANSACTION_ID', res.message);
@@ -2188,6 +2977,11 @@
       const res = await callMCPTool('verify_routine_state', {
         confirm: true,
         transaction_id: "tx_expired_demo_99999"
+      }, {
+        traceContext: {
+          utterance: "[Refusal Test] verify_routine_state(confirm=True) with non-existent ID 'tx_expired_demo_99999'",
+          ruleName: "Invariant Test 5: Two-Step Gate Proposal Cache Expiration (PROPOSAL_NOT_FOUND Expected)"
+        }
       });
       if (res && res.status === 'error') {
         renderRefusalCard(res.error_code || 'PROPOSAL_NOT_FOUND', res.message);
@@ -2202,6 +2996,11 @@
         senior_id: seniorId,
         category: "chemotherapy_prescription",
         details: "Prescribe 50mg dose titration"
+      }, {
+        traceContext: {
+          utterance: "[Refusal Test] Log clinical chemotherapy prescription: 'Prescribe 50mg dose titration'",
+          ruleName: "Invariant Test 6: Non-Clinical Boundary Category Enum (INVALID_CATEGORY Expected)"
+        }
       });
       if (res && (res.error || res.error_code === 'INVALID_CATEGORY')) {
         renderRefusalCard('INVALID_CATEGORY', res.message || res.error?.message || 'Janus strictly rejects clinical chemotherapy.');

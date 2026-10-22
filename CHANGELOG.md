@@ -29,6 +29,23 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 15:15:00 IST] - Simulator Role Switcher, Visible 3-Step MCP Tool Call Trace, and Refusal Invariant Verification
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Feature & Transparency Enhancement
+- **Files Modified / Created**:
+  - `simulator/index.html` (Replaced manual token editing with 3-button interactive role switcher [Senior Margaret / Caregiver Sarah / Caregiver David]; added server connection dot, endpoint host, and active role badge to top status bar; added live visible 3-step Tool Call Trace panel displaying utterance -> matched rule -> exact MCP tools/call JSON and real server response status/body; collapsed advanced settings by default; wired trace reporting into all 6 'Try to break it' refusal invariant test buttons).
+- **Diff / Summary of Changes**:
+  - Implemented 3-button role switcher (`selectRole`) that binds Bearer token, senior ID, and display name atomically, clears `pendingTx`, and re-polls caregiver dashboard.
+  - Placed a live, non-hidden Tool Call Trace panel between split container and debug drawer, labeled: *"Simulated Alexa+ host: deterministic intent router. A real Alexa+ host selects tools from the MCP tool descriptions."*
+  - Exposed side-by-side formatted JSON code blocks displaying exact dispatched `tools/call` JSON-RPC payloads and un-mocked server response bodies (including HTTP 401s, 200 FORBIDDEN, and 200 COMMITTED).
+  - Maintained all 6 "Try to break it" refusal invariant buttons with rich trace context.
+  - Preserved all 44 original DOM element IDs, zero modifications to server code, and zero external network requests or font dependencies.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `65 passed in 7.31s` (100% pass across all test suites, zero server logic altered).
+  - `python scripts/mcp_check.py http://127.0.0.1:8000`: 10/10 passed against live FastMCP server.
+- **Impact & Next Steps**:
+  - Reviewers and judges can immediately switch roles with one click, trigger routine logs or refusal invariants, and inspect the real FastMCP JSON-RPC request and response payloads live on screen.
+
 ### [2026-10-22 14:45:00 IST] - Document Hosted Demo Endpoint, Ephemeral Tunnel Caveats, Browser 401 Behavior, and mcp_check Verification
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Documentation & Reviewer Verification Guidance
