@@ -176,6 +176,70 @@ Open `simulator/index.html` directly in any modern browser (no web server requir
 
 ---
 
+## 🌐 Hosted Demo Endpoint
+
+* **Public MCP Endpoint**: `https://acc-roommate-rio-reception.trycloudflare.com/mcp`
+* **Liveness Probe**: `https://acc-roommate-rio-reception.trycloudflare.com/health`
+
+> [!NOTE]
+> **Ephemeral Quick Tunnel Status & Reliability Notice**:
+> This hosted endpoint is an ephemeral, free Cloudflare Quick Tunnel routing directly to the author's local development machine.
+> - **Machine Dependency**: It is **only live while the author's machine is running and the tunnel process is active**.
+> - **Ephemeral URL**: The URL **changes on every tunnel restart or network reconnection**.
+> - **Recommended Path**: **The [Local Quickstart](#-quickstart) is the reliable, primary evaluation path** for judges and reviewers.
+
+### Browser Navigation & Liveness Check
+* **Opening `/mcp` in a browser returns HTTP 401 Unauthorized by design**:
+  The `/mcp` route is the Streamable HTTP transport endpoint implementing the Model Context Protocol. It strictly enforces Bearer token authentication (`Authorization: Bearer <token>`). Direct browser navigation does not send authorization headers and is intentionally rejected with HTTP 401 (`UNAUTHORIZED: Missing authorization token.`) to protect elder data privacy.
+* **Liveness Check via `/health`**:
+  Navigate to [`/health`](https://acc-roommate-rio-reception.trycloudflare.com/health) (or `http://127.0.0.1:8000/health` locally) to verify server status. It returns an unauthenticated JSON liveness response:
+  ```json
+  {"status":"healthy","service":"janus-mcp","version":"0.1.0","protocol":"2025-11-25"}
+  ```
+
+### Verify the Hosted Endpoint
+Verify the hosted endpoint using the standalone, zero-dependency [`scripts/mcp_check.py`](scripts/mcp_check.py) script:
+
+```bash
+# On Linux / macOS / Git Bash:
+source .venv/bin/activate
+python scripts/mcp_check.py https://acc-roommate-rio-reception.trycloudflare.com
+
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+python scripts/mcp_check.py https://acc-roommate-rio-reception.trycloudflare.com
+```
+
+When the author's machine and tunnel are running, this script executes 10 automated contract, security, and gating checks against the live endpoint (expected: **10/10 passed**):
+
+```
+health: 200 {"status":"healthy","service":"janus-mcp","version":"0.1.0","protocol":"2025-11-25"}
+PASS | A no token -> 401 | HTTP 401
+PASS | B garbage token -> 401 | HTTP 401
+PASS | C wildcard-prefix token -> 401 | HTTP 401
+PASS | D margaret reads arthur_02 -> FORBIDDEN, no data | HTTP 200
+PASS | E senior token on handoff -> FORBIDDEN | HTTP 200
+PASS | F caregiver reads own senior -> OK | HTTP 200
+PASS | G log -> pending tx id | HTTP 200
+PASS | H confirm with no transaction_id -> error | HTTP 200
+PASS | I1 confirm real tx -> COMMITTED | HTTP 200
+PASS | I2 replay -> ALREADY_COMMITTED | HTTP 200
+
+10/10 passed
+```
+
+### Demo Bearer Tokens & Permissions
+
+The hosted demo server runs with `JANUS_DEMO_MODE=1`, enabling three distinct demo tokens:
+
+| Demo Bearer Token | Role | Actor Identity | Target Senior ID | Scope & Exact Access Permissions |
+|:---|:---:|:---|:---:|:---|
+| `janus-demo-senior-margaret` | `senior` | `senior_margaret` | `margaret_01` | Propose and confirm own non-clinical daily living routines (`meal`, `hydration`, `vitamins`, `activity`, `wellness`) for Margaret Vance (`margaret_01`). Strictly **forbidden** from reading caregiver summaries, proposing shift handoffs, and accessing any other senior (e.g. `arthur_02`). |
+| `janus-demo-caregiver-sarah` | `caregiver` | `caregiver_sarah` | `margaret_01` | Full caregiver access for Margaret Vance (`margaret_01`): read daily timeline summaries, log routine events, propose and confirm caregiver shift handoffs. Strictly **forbidden** from accessing `arthur_02`. |
+| `janus-demo-caregiver-david` | `caregiver` | `caregiver_david` | `arthur_02` | Full caregiver access for Arthur Davis (`arthur_02`): read daily timeline summaries, log routine events, propose and confirm caregiver shift handoffs. Strictly **forbidden** from accessing `margaret_01`. |
+
+---
+
 ## 🛡️ Verify It Yourself (Security & Gate Live Audit)
 
 Run the standalone audit script [`scripts/judge_check.py`](scripts/judge_check.py) against any running Janus server (`JANUS_DEMO_MODE=1`) to independently prove all authentication, cross-senior isolation, role boundary, and two-step confirmation gate invariants:

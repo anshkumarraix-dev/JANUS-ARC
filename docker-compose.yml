@@ -9,9 +9,13 @@ services:
       - "8000:8000"
     environment:
       - JANUS_HOST=0.0.0.0
+      - PORT=8000
       - JANUS_PORT=8000
       - JANUS_DB_PATH=/app/data/janus.db
       - JANUS_LOG_LEVEL=info
+      - JANUS_DEMO_MODE=1
+      # Pass JANUS_ADMIN_TOKEN via environment at runtime — never commit real secrets
+      - JANUS_ADMIN_TOKEN=${JANUS_ADMIN_TOKEN:-}
     volumes:
       - janus-data:/app/data
     restart: unless-stopped

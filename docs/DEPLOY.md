@@ -11,13 +11,26 @@ This guide details deployment procedures for **Janus (ElderSync)** across contai
    - [Running with `docker run`](#running-with-docker-run)
    - [Running with `docker compose`](#running-with-docker-compose)
    - [Container Healthcheck & Verification](#container-healthcheck--verification)
-3. [Cloudflare Quick-Tunnels](#3-cloudflare-quick-tunnels)
+3. [Deploying to Render (Exact Step-by-Step Guide)](#3-deploying-to-render-exact-step-by-step-guide)
+   - [Step 1: Push Repository to GitHub](#step-1-push-repository-to-github)
+   - [Step 2: Create Web Service on Render](#step-2-create-web-service-on-render)
+   - [Step 3: Configure Environment Variables](#step-3-configure-environment-variables)
+   - [Step 4: Automatic First-Boot Demo Data Seeding](#step-4-automatic-first-boot-demo-data-seeding)
+   - [Step 5: Updating `.agents/mcp_config.json`](#step-5-updating-agentsmcp_configjson)
+   - [Step 6: Verifying with `judge_check.py`](#step-6-verifying-with-judge_checkpy)
+4. [Render Free Tier & Sleep Behavior Verification](#4-render-free-tier--sleep-behavior-verification)
+   - [Inactivity Scale-to-Zero (15-Minute Sleep Rule)](#inactivity-scale-to-zero-15-minute-sleep-rule)
+   - [Cold-Start Latency vs. Alexa+ Voice Ceiling](#cold-start-latency-vs-alexa-voice-ceiling)
+   - [Pre-Warming the Endpoint Before Reviewer Testing](#pre-warming-the-endpoint-before-reviewer-testing)
+   - [Ephemeral Storage & Automated Seed Resilience](#ephemeral-storage--automated-seed-resilience)
+   - [Monthly Compute Allowance](#monthly-compute-allowance)
+5. [Cloudflare Quick-Tunnels](#5-cloudflare-quick-tunnels)
    - [Automated Tunnel Script](#automated-tunnel-script)
    - [Critical Caveat: Ephemeral URL Lifecycle](#critical-caveat-ephemeral-url-lifecycle)
    - [Permanent Named Tunnels for Production](#permanent-named-tunnels-for-production)
-4. [Evaluating Free Container Hosts](#4-evaluating-free-container-hosts)
+6. [Evaluating Alternative Container Hosts](#6-evaluating-alternative-container-hosts)
    - [Candidate Platforms](#candidate-platforms)
-   - [Verification Checklist (Do Not Assume Pricing or Availability)](#verification-checklist-do-not-assume-pricing-or-availability)
+   - [General Verification Checklist (Do Not Assume Pricing or Availability)](#general-verification-checklist-do-not-assume-pricing-or-availability)
 
 ---
 
@@ -138,7 +151,126 @@ curl -s http://127.0.0.1:8000/health
 
 ---
 
-## 3. Cloudflare Quick-Tunnels
+## 3. Deploying to Render (Exact Step-by-Step Guide)
+
+Render is the recommended hosting platform for providing a publicly accessible, TLS-secured endpoint (`https://<service-name>.onrender.com/mcp`) for hackathon judges and external reviewers.
+
+### Step 1: Push Repository to GitHub
+Ensure all code and configuration files are pushed to your GitHub repository:
+```bash
+git add .
+git commit -m "Configure container port and demo seed for Render deployment"
+git push origin main
+```
+
+### Step 2: Create Web Service on Render
+1. Navigate to the [Render Dashboard](https://dashboard.render.com).
+2. Click **New +** in the top navigation bar and select **Web Service**.
+3. Under *Connect a repository*, link your GitHub account and select your Janus repository (`JANUS-ARC` or `janus-eldersync`).
+4. Configure service parameters:
+   * **Name**: `janus-eldersync-mcp` (or any custom name; this sets your URL: `https://<name>.onrender.com`).
+   * **Region**: Select the region closest to reviewers (e.g., `Oregon (US West)` or `Ohio (US East)`).
+   * **Branch**: `main`.
+   * **Runtime**: Select **Docker** (Render automatically detects the root [`Dockerfile`](../Dockerfile)).
+   * **Instance Type**: Select **Free** (0.1 CPU, 512 MB RAM).
+
+### Step 3: Configure Environment Variables
+In the **Environment Variables** section on Render, add the following two key-value pairs:
+
+| Variable Name | Value | Purpose |
+|:---|:---|:---|
+| `JANUS_DEMO_MODE` | `1` | Enables pre-configured demo tokens for reviewers (`janus-demo-senior-margaret`, `janus-demo-caregiver-sarah`, `janus-demo-caregiver-david`). |
+| `JANUS_ADMIN_TOKEN` | `<your-generated-admin-secret>` | Secret token granting administrative access (`*` senior scope). **Generate a strong random string** (e.g., `python -c "import secrets; print(secrets.token_urlsafe(32))"`). Never commit this value to the git repository. |
+
+> [!NOTE]
+> **Dynamic Port Binding**: Render automatically injects the `PORT` environment variable (typically `10000`). The Janus `Dockerfile` and `src/janus/server.py` automatically detect and bind to `0.0.0.0:$PORT`. Do not override `PORT` manually.
+
+Click **Create Web Service**. Render will build the container from `Dockerfile` and deploy the service.
+
+### Step 4: Automatic First-Boot Demo Data Seeding
+When the container starts up for the first time, `storage.init_db()` executes automatically on startup:
+1. Creates all database tables (`seniors`, `routine_logs`, `shift_handoffs`, `proposals`, `routine_schedule`, `alerts`, `audit_log`) in WAL mode.
+2. Automatically seeds demo profiles and full daily schedules:
+   * **Senior 1**: `margaret_01` (Margaret Vance, age 78, `America/New_York`) with 8 daily routine slots.
+   * **Senior 2**: `arthur_02` (Arthur Davis, age 82, `America/New_York`) with 8 daily routine slots.
+3. Initializes the SHA-256 cryptographic audit chain.
+
+Even if the free container restarts or runs on ephemeral disk, the auto-seeding logic ensures reviewers can immediately invoke all 4 tools without manual database provisioning.
+
+### Step 5: Updating `.agents/mcp_config.json`
+Once Render displays the green **Live** badge, copy your service URL (e.g., `https://janus-eldersync-mcp.onrender.com`).
+
+Update [`.agents/mcp_config.json`](../.agents/mcp_config.json) by replacing the placeholder with your live URL:
+```json
+{
+  "mcpServers": {
+    "janus": {
+      "serverUrl": "http://127.0.0.1:8000/mcp"
+    },
+    "janus-deployed": {
+      "serverUrl": "https://janus-eldersync-mcp.onrender.com/mcp"
+    }
+  }
+}
+```
+
+### Step 6: Verifying with `judge_check.py`
+Verify the live public deployment by executing the standalone verification script against your Render HTTPS URL:
+```bash
+python scripts/judge_check.py --url https://janus-eldersync-mcp.onrender.com
+```
+
+All 9 assertions will run against your public cloud endpoint and output a green `PASS` table:
+```
+======================================================================
+JANUS MCP CONTRACT & CONFIRMATION GATE VERIFICATION
+Target: https://janus-eldersync-mcp.onrender.com
+======================================================================
+[PASS]  1. Health check probe GET /health returns 200
+[PASS]  2.a No Authorization header -> HTTP 401 UNAUTHORIZED
+[PASS]  2.b Garbage authorization token -> HTTP 401 UNAUTHORIZED
+[PASS]  2.c Wildcard-prefix token 'janus-demo-x' -> HTTP 401 UNAUTHORIZED
+[PASS]  2.d Senior margaret reading arthur_02 -> FORBIDDEN
+[PASS]  2.e Senior token doing shift handoff -> FORBIDDEN
+[PASS]  2.f Caregiver token reading own senior -> 200 OK
+[PASS]  2.g log_daily_routine returns proposal with 0 writes
+[PASS]  2.h verify_routine_state confirm=True without tx_id -> ERROR 0 writes
+[PASS]  2.i verify_routine_state confirm=True with tx_id -> COMMITTED 1 write
+======================================================================
+RESULT: ALL 9 VERIFICATION CHECKS PASSED (Exit code: 0)
+======================================================================
+```
+
+---
+
+## 4. Render Free Tier & Sleep Behavior Verification
+
+Before presenting the public URL to reviewers and judges, verify the following platform characteristics:
+
+### 1. Inactivity Scale-to-Zero (15-Minute Sleep Rule)
+* **Behavior**: Render's free tier automatically suspends (spins down) the Web Service after **15 minutes of inactivity** (zero inbound HTTP requests).
+* **Cold-Start Duration**: When a new request arrives while the service is suspended, Render initiates a container cold start. This takes **50 to 70 seconds** before the server responds to the first request.
+* **Impact on Alexa+ Voice**:
+  > [!IMPORTANT]
+  > Alexa+ enforces a strict `< 500 ms` round-trip latency ceiling. If an elder or judge speaks to Alexa while the container is suspended, Alexa will time out before the container completes cold start.
+* **Mitigation / Pre-Warming Procedure**:
+  Always pre-warm the container before conducting live demos or reviewer evaluation. Send a single GET request:
+  ```bash
+  curl -I https://janus-eldersync-mcp.onrender.com/health
+  ```
+  Wait until the command returns `HTTP/2 200 OK`. Once awake, subsequent requests will execute with typical sub-30 ms response times.
+
+### 2. Ephemeral Storage Lifecycle
+* **Behavior**: Free Render instances run on ephemeral container storage. If the container restarts or a new deployment is triggered, any records written since the last boot are reset.
+* **Why Janus is Resilient**: Janus's `storage.init_db()` is designed with zero-state boot tolerance. On every container boot, if the database is uninitialized, it immediately seeds both `margaret_01` and `arthur_02` with complete schedules. The test suite, simulator, and `judge_check.py` will work out of the box on every boot.
+
+### 3. Monthly Free Compute Allowance
+* **Behavior**: Render grants **750 free instance hours per month** across free services.
+* **Verification**: A single free service sleeping when idle consumes only the active hours, comfortably fitting within the monthly quota without incurring charges.
+
+---
+
+## 5. Cloudflare Quick-Tunnels
 
 Alexa+ requires a publicly reachable, TLS-secured endpoint (`https://...`). Cloudflare quick-tunnels allow exposing local and containerized instances without public IP addresses or router port forwarding.
 
@@ -183,7 +315,7 @@ For a persistent public URL that survives restarts:
 
 ---
 
-## 4. Evaluating Free Container Hosts
+## 6. Evaluating Alternative Container Hosts
 
 If deploying beyond a local machine or edge gateway, several cloud platforms offer container hosting with free-tier or trial credits.
 
@@ -197,7 +329,7 @@ If deploying beyond a local machine or edge gateway, several cloud platforms off
 
 ---
 
-### Verification Checklist (Do Not Assume Pricing or Availability)
+### General Verification Checklist (Do Not Assume Pricing or Availability)
 
 > [!IMPORTANT]
 > **Cloud Provider Terms Evolve Continuously**: Never assume pricing tiers, free allowances, or feature availability remain unchanged. Before selecting any container hosting provider for Janus, you **MUST manually verify** the following 6 technical constraints:

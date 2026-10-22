@@ -2,6 +2,9 @@
   "mcpServers": {
     "janus": {
       "serverUrl": "http://127.0.0.1:8000/mcp"
+    },
+    "janus-deployed": {
+      "serverUrl": "https://<your-deployed-service-url>/mcp"
     }
   }
 }

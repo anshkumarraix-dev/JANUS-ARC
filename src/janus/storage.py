@@ -13,7 +13,7 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional,Tuple
 from zoneinfo import ZoneInfo
 
 from janus.errors import ErrorCode, InvalidCategoryError
@@ -387,6 +387,42 @@ def init_db(db_path: Optional[str] = None) -> None:
                     """,
                     (
                         "margaret_01",
+                        slot["slot_id"],
+                        slot["label"],
+                        slot["category"],
+                        slot["window_start"],
+                        slot["window_end"],
+                        slot["urgency"],
+                    ),
+                )
+
+            # Seed default senior profile for Arthur Davis if empty
+            cursor.execute("SELECT id FROM seniors WHERE id = ?", ("arthur_02",))
+            if not cursor.fetchone():
+                cursor.execute(
+                    """
+                    INSERT INTO seniors (id, name, age, notes, tz)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "arthur_02",
+                        "Arthur Davis",
+                        82,
+                        "Independent living; prefers afternoon walks and evening routine reminders.",
+                        "America/New_York",
+                    ),
+                )
+
+            # Seed default routine schedule for Arthur Davis
+            for slot in DEFAULT_SCHEDULE_SLOTS:
+                cursor.execute(
+                    """
+                    INSERT OR IGNORE INTO routine_schedule (
+                        senior_id, slot_id, label, category, window_start, window_end, urgency
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        "arthur_02",
                         slot["slot_id"],
                         slot["label"],
                         slot["category"],

@@ -349,3 +349,43 @@ def test_audit_chain_prev_hash_tamper(test_db):
     # CLI verification failure code
     ret = audit_main(["verify", "--db", test_db])
     assert ret == 1
+
+
+def test_init_db_seeds_both_seniors(test_db):
+    """Verify fresh database initialization seeds both margaret_01 and arthur_02 with schedules."""
+    margaret = storage.get_senior("margaret_01", db_path=test_db)
+    assert margaret is not None
+    assert margaret["name"] == "Margaret Vance"
+
+    arthur = storage.get_senior("arthur_02", db_path=test_db)
+    assert arthur is not None
+    assert arthur["name"] == "Arthur Davis"
+
+    margaret_slots = storage.get_schedule_slots("margaret_01", db_path=test_db)
+    assert len(margaret_slots) == 8
+
+    arthur_slots = storage.get_schedule_slots("arthur_02", db_path=test_db)
+    assert len(arthur_slots) == 8
+
+
+def test_tokens_require_env(monkeypatch):
+    """Verify demo tokens and admin token are loaded strictly when configured in environment."""
+    from janus.auth import get_token_registry
+    # When neither is configured
+    monkeypatch.setenv("JANUS_DEMO_MODE", "0")
+    monkeypatch.delenv("JANUS_ADMIN_TOKEN", raising=False)
+    reg = get_token_registry()
+    assert len(reg) == 0
+
+    # When only demo mode is enabled
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    reg_demo = get_token_registry()
+    assert "janus-demo-senior-margaret" in reg_demo
+    assert "janus-demo-caregiver-sarah" in reg_demo
+    assert "janus-demo-caregiver-david" in reg_demo
+
+    # When admin token is added
+    monkeypatch.setenv("JANUS_ADMIN_TOKEN", "prod-admin-secret-xyz")
+    reg_admin = get_token_registry()
+    assert "prod-admin-secret-xyz" in reg_admin
+    assert "*" in reg_admin["prod-admin-secret-xyz"]["allowed_seniors"]

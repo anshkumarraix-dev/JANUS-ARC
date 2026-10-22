@@ -29,6 +29,42 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 14:45:00 IST] - Document Hosted Demo Endpoint, Ephemeral Tunnel Caveats, Browser 401 Behavior, and mcp_check Verification
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Documentation & Reviewer Verification Guidance
+- **Files Modified / Created**:
+  - `README.md` (Added "Hosted demo endpoint" section specifying `https://acc-roommate-rio-reception.trycloudflare.com/mcp`, plain caveats that it is a free quick tunnel to the author's development machine active only while running with changing restart URLs, and identifying the local quickstart as the reliable path; documented that browser navigation to `/mcp` intentionally returns HTTP 401 Unauthorized while `/health` provides liveness checks; detailed verification via `python scripts/mcp_check.py https://acc-roommate-rio-reception.trycloudflare.com` expecting 10/10; and tabulated the 3 demo tokens with exact permissions).
+- **Diff / Summary of Changes**:
+  - Set transparent expectations regarding the ephemeral nature of the author's Cloudflare quick tunnel.
+  - Clarified standard FastMCP security design (browser GET `/mcp` returns 401 by design without Bearer header).
+  - Provided copy-paste command for `scripts/mcp_check.py` with full 10-check output representation.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `65 passed in 7.36s` (100% pass across all test suites, zero server logic altered).
+- **Impact & Next Steps**:
+  - Reviewers understand exactly how to test the hosted demo tunnel when live while having clear guidance that local quickstart is the dependable offline evaluation path.
+
+### [2026-10-22 14:42:00 IST] - Stable Public Endpoint Setup: Dynamic $PORT Binding, First-Boot Demo Seeding, Env Token Enforcement, and Render Deployment Guide
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Infrastructure, Security, Testing & Deployment Documentation
+- **Files Modified / Created**:
+  - `Dockerfile` (Configured `PORT=8000` default, honors host-injected `$PORT` env var, binds `0.0.0.0`, dynamic healthcheck against `http://localhost:${PORT:-8000}/health`).
+  - `docker-compose.yml` (Configured `PORT=8000`, `JANUS_DEMO_MODE=1`, and documented `JANUS_ADMIN_TOKEN` runtime injection).
+  - `src/janus/server.py` (Updated `main()` and `run_server()` to dynamically honor `$PORT` or `$JANUS_PORT`, added explicit startup logging for `JANUS_DEMO_MODE` and `JANUS_ADMIN_TOKEN` requirements).
+  - `src/janus/storage.py` (Enhanced `init_db()` to automatically seed both `margaret_01` [Margaret Vance] and `arthur_02` [Arthur Davis] with complete 8-slot daily schedules on fresh/ephemeral boot).
+  - `.agents/mcp_config.json` (Added `janus-deployed` public URL placeholder for pointing to deployed HTTPS instance).
+  - `docs/DEPLOY.md` (Added comprehensive Section 3 "Deploying to Render (Exact Step-by-Step Guide)" and Section 4 "Render Free Tier & Sleep Behavior Verification", documenting 15-minute inactivity scale-to-zero, 50-70s cold-start impact on Alexa+ <500ms voice ceiling, pre-warming curl procedure, and ephemeral disk resilience).
+  - `tests/test_auth_audit.py` (Added `test_init_db_seeds_both_seniors` and `test_tokens_require_env` to prove first-boot dual-senior seeding and environment-driven token registry requirements).
+- **Diff / Summary of Changes**:
+  - Handled container platform port injection dynamically via standard `$PORT`.
+  - Guaranteed zero-state boot tolerance on ephemeral container filesystems by seeding both demo seniors and schedules on first boot.
+  - Enforced that demo tokens require `JANUS_DEMO_MODE=1` and admin token requires `JANUS_ADMIN_TOKEN` from runtime environment without storing real secrets in the repo.
+  - Documented exact Render deployment steps, sleep behavior, pre-warming curl command, and judge check verification.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `65 passed in 9.23s` (100% pass across all test suites, including new seeding and token env tests).
+  - `python -m janus.audit verify`: 65 audit records verified with 100% cryptographic SHA-256 hash chain integrity.
+- **Impact & Next Steps**:
+  - Reviewers can deploy Janus directly to Render with a single click, configure environment variables, and run `python scripts/judge_check.py --url https://<service>.onrender.com` against the live HTTPS endpoint.
+
 ### [2026-10-22 14:30:00 IST] - Prune Unproven Claims, Overhaul README Quickstart, and Synchronize DESIGN.md
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Documentation & Compliance Refinement
