@@ -69,16 +69,31 @@ Maintains an append-only, auditable ledger of shift handovers between family car
 
 ### Write Data Flow with Confirmation Gate
 1. **Initial Trigger**: User speaks: *"Alexa, record morning caregiver shift handoff to Sarah."*
-2. **Step 1 (Preview Proposal)**: Host invokes `verify_routine_state(senior_id="margaret_01", incoming="Sarah", confirm=False)`.
+2. **Step 1 (Preview Proposal)**: Host invokes `verify_routine_state(confirm=False, senior_id="margaret_01", action_type="shift_handoff", payload={"departing_caregiver": "David", "incoming_caregiver": "Sarah", "handoff_notes": "..."})`.
    - Tool inspects SQLite database for today's logs.
    - Generates a proposal preview summarizing pending routine items.
-   - Pending proposals are assigned a unique transaction ID valid for 5 minutes (`PROPOSAL_TTL_SECONDS = 300`).
+   - Pending proposals are assigned a unique transaction ID (`tx_...`) valid for 5 minutes (`PROPOSAL_TTL_SECONDS = 300`).
    - Database is untouched (`writes = 0`).
    - Alexa speaks: *"Margaret had breakfast and vitamins, but has only had 300ml of water. Do you confirm handing off to Sarah?"*
 3. **Step 2 (Host Voice Consent)**: Caregiver responds: *"Yes, confirm."*
-4. **Step 3 (Commit)**: Host invokes `verify_routine_state(..., confirm=True)`.
-   - Tool writes atomic transaction to `shift_handoffs`.
+4. **Step 3 (Commit)**: Host invokes `verify_routine_state(confirm=True, transaction_id="tx_...")`.
+   - Tool writes atomic transaction to `shift_handoffs` (`database_writes = 1`).
    - Emits Echo Show Visual Card payload and audio confirmation.
+   - Replaying the same transaction ID is idempotent and returns `ALREADY_COMMITTED` with 0 additional writes.
+
+> [!NOTE]
+> **ADR-003 Signature Superseded by Implementation**:
+> The initial proposal in ADR-003 contemplated tool-specific arguments (`verify_routine_state(senior_id, departing_caregiver, incoming_caregiver, handoff_notes, confirm)`). During implementation, this was superseded by a unified, transactional confirmation gate:
+> ```python
+> async def verify_routine_state(
+>     confirm: bool = False,
+>     transaction_id: Optional[str] = None,
+>     senior_id: Optional[str] = None,
+>     action_type: Optional[str] = "shift_handoff",
+>     payload: Optional[Dict[str, Any]] = None,
+> ) -> Union[ProposalPreviewResponse, CommittedStateResponse, AlreadyCommittedResponse, ProposalErrorResponse]:
+> ```
+> This unified signature enforces the two-step gate across both routine logging proposals (`action_type="routine_log"`) and shift handoffs (`action_type="shift_handoff"`), rejects unconfirmed commits with no transaction ID, and enforces strict 5-minute proposal validity TTL (`PROPOSAL_TTL_SECONDS = 300`).
 
 ---
 

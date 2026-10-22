@@ -93,6 +93,19 @@ class AuthMiddleware:
         is_valid, claims, reason = verify_token(token)
 
         if not is_valid or not claims:
+            # Log rejected attempt to audit_log
+            try:
+                storage.record_audit_entry(
+                    actor="anonymous" if not token else "unauthenticated",
+                    role="unknown",
+                    tool="auth_middleware",
+                    senior_id=None,
+                    transaction_id=None,
+                    outcome="UNAUTHORIZED",
+                )
+            except Exception as e:
+                logger.warning("Failed to record audit entry for unauthorized request: %s", e)
+
             # Missing or invalid token -> HTTP 401 JSON
             response = JSONResponse(
                 {
@@ -176,6 +189,24 @@ async def log_daily_routine(
 
     # Enforce senior access & role check BEFORE any storage call
     identity = get_current_identity()
+    if not check_senior_access(identity, req.senior_id):
+        audit_actor = identity.get("actor", "anonymous") if identity else (req.logged_by or "anonymous")
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="log_daily_routine",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Access to senior '{req.senior_id}' is forbidden for actor '{audit_actor}'.",
+            database_writes=0,
+        )
+
     allowed, reason = check_role_access(identity, "log_routine", req.senior_id)
     if not allowed:
         audit_actor = identity.get("actor", "anonymous") if identity else (req.logged_by or "anonymous")
@@ -311,6 +342,24 @@ async def get_caregiver_summary(
 
     # Enforce senior access & role check BEFORE any storage call
     identity = get_current_identity()
+    if not check_senior_access(identity, req.senior_id):
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="get_caregiver_summary",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Access to senior '{req.senior_id}' is forbidden for actor '{audit_actor}'.",
+            database_writes=0,
+        )
+
     allowed, reason = check_role_access(identity, "read_summary", req.senior_id)
     if not allowed:
         audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
@@ -404,6 +453,25 @@ async def verify_routine_state(
 
         # Check access before returning proposal preview
         identity = get_current_identity()
+        if not check_senior_access(identity, s_id):
+            audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+            audit_role = identity.get("role", "unknown") if identity else "unknown"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=s_id,
+                transaction_id=req.transaction_id,
+                outcome="FORBIDDEN",
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=f"Access to senior '{s_id}' is forbidden for actor '{audit_actor}'.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
+
         check_action = "propose_handoff" if act_type == "shift_handoff" else "log_routine"
         allowed, reason = check_role_access(identity, check_action, s_id)
         if not allowed:
@@ -498,6 +566,24 @@ async def verify_routine_state(
 
         # Enforce role & senior access BEFORE any storage call
         identity = get_current_identity()
+        if not check_senior_access(identity, req.senior_id):
+            audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+            audit_role = identity.get("role", "unknown") if identity else "unknown"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=req.senior_id,
+                transaction_id=None,
+                outcome="FORBIDDEN",
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=f"Access to senior '{req.senior_id}' is forbidden for actor '{audit_actor}'.",
+                database_writes=0,
+            )
+
         check_action = "propose_handoff" if act_type == "shift_handoff" else "log_routine"
         allowed, reason = check_role_access(identity, check_action, req.senior_id)
         if not allowed:
@@ -615,6 +701,25 @@ async def verify_routine_state(
 
     # Enforce role & senior access BEFORE storage commit
     identity = get_current_identity()
+    if not check_senior_access(identity, s_id):
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=s_id,
+            transaction_id=req.transaction_id,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Access to senior '{s_id}' is forbidden for actor '{audit_actor}'.",
+            database_writes=0,
+            transaction_id=req.transaction_id,
+        )
+
     check_action = "confirm_handoff" if act_type == "shift_handoff" else "confirm_routine"
     allowed, reason = check_role_access(identity, check_action, s_id)
     if not allowed:
@@ -751,6 +856,24 @@ async def flag_missed_routine(
 
     # Enforce senior access & role check BEFORE any storage call
     identity = get_current_identity()
+    if not check_senior_access(identity, req.senior_id):
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="flag_missed_routine",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Access to senior '{req.senior_id}' is forbidden for actor '{audit_actor}'.",
+            database_writes=0,
+        )
+
     allowed, reason = check_role_access(identity, "flag_missed", req.senior_id)
     if not allowed:
         audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
@@ -924,6 +1047,24 @@ def get_senior_today_resource(id: str) -> str:
     """Read-only summary resource providing today's non-clinical routine timeline and metrics."""
     logger.info("Reading resource janus://senior/%s/today", id)
     identity = get_current_identity()
+    if not check_senior_access(identity, id):
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="get_senior_today_resource",
+            senior_id=id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return json.dumps({
+            "status": "error",
+            "error_code": ErrorCode.FORBIDDEN,
+            "message": f"Access to senior '{id}' is forbidden for actor '{audit_actor}'.",
+            "database_writes": 0,
+        })
+
     allowed, reason = check_role_access(identity, "read_resource", id)
     if not allowed:
         audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
@@ -986,6 +1127,18 @@ def get_app(host: str = "0.0.0.0") -> Starlette:
 
     app.add_route("/health", health_endpoint, methods=["GET"])
 
+    demo_mode = os.environ.get("JANUS_DEMO_MODE", "0").strip() in ("1", "true", "True")
+    admin_token = os.environ.get("JANUS_ADMIN_TOKEN")
+    if not demo_mode and not admin_token:
+        logger.warning(
+            "SECURITY CONFIGURATION NOTICE: Neither JANUS_DEMO_MODE=1 nor JANUS_ADMIN_TOKEN is configured. "
+            "All authenticated requests will be rejected with HTTP 401 until valid credentials are provided."
+        )
+    elif demo_mode:
+        logger.info("JANUS_DEMO_MODE=1 active. Demo tokens (margaret_01, arthur_02) are enabled.")
+    if admin_token:
+        logger.info("JANUS_ADMIN_TOKEN loaded from environment.")
+
     return app
 
 
@@ -993,17 +1146,25 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, log_level: Optional[str]
     """Launch the FastMCP server with uvicorn."""
     import uvicorn
 
+    # If port is default 8000, allow PORT env var to override
+    effective_port = port
+    if port == 8000 and "PORT" in os.environ:
+        try:
+            effective_port = int(os.environ["PORT"])
+        except ValueError:
+            effective_port = port
+
     level = log_level or os.environ.get("JANUS_LOG_LEVEL", "info")
-    logger.info("Starting Janus FastMCP v2 server on http://%s:%d/mcp ...", host, port)
+    logger.info("Starting Janus FastMCP v2 server on http://%s:%d/mcp ...", host, effective_port)
     app = get_app(host=host)
     try:
-        uvicorn.run(app, host=host, port=port, log_level=level)
+        uvicorn.run(app, host=host, port=effective_port, log_level=level)
     except OSError as e:
         if "10048" in str(e) or "address already in use" in str(e).lower():
             logger.error(
                 "Port %d is already in use by another process. "
-                "Please terminate the running process or start on a different port via JANUS_PORT environment variable.",
-                port,
+                "Please terminate the running process or start on a different port via JANUS_PORT or PORT environment variable.",
+                effective_port,
             )
         else:
             raise
@@ -1012,7 +1173,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, log_level: Optional[str]
 def main() -> None:
     """Console script entrypoint for janus-server and python -m janus.server."""
     host_env = os.environ.get("JANUS_HOST", "0.0.0.0")
-    port_env = int(os.environ.get("JANUS_PORT", "8000"))
+    port_env = int(os.environ.get("PORT") or os.environ.get("JANUS_PORT") or "8000")
     level_env = os.environ.get("JANUS_LOG_LEVEL", "info")
     run_server(host=host_env, port=port_env, log_level=level_env)
 

@@ -123,31 +123,22 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-### Step 2: Automated Reviewer Smoke Test (Optional)
-
-Run the full end-to-end automated verification script:
-```bash
-# On Linux / macOS:
-bash scripts/smoke.sh
-
-# On Windows PowerShell:
-powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
-```
-
-### Step 3: Run the Server in Demo Mode
+### Step 2: Run the Server in Demo Mode
 
 > [!IMPORTANT]
 > **Demo Tokens Require `JANUS_DEMO_MODE=1`**:
-> To prevent accidental development bypass in production, the server requires `JANUS_DEMO_MODE=1` to accept the 3 pre-configured demo tokens. When `JANUS_DEMO_MODE` is unset or `0`, all demo tokens are rejected with HTTP 401 Unauthorized.
+> The server requires `JANUS_DEMO_MODE=1` to enable the 3 pre-configured demo tokens. When `JANUS_DEMO_MODE` is unset or `0`, all demo tokens are rejected with HTTP 401 Unauthorized.
 
-Set the demo environment variable and start the server:
+Start the FastMCP server with venv activated:
 
 ```bash
 # On Linux / macOS / Git Bash:
+source .venv/bin/activate
 export JANUS_DEMO_MODE=1
 python -m janus.server
 
 # On Windows PowerShell:
+.venv\Scripts\Activate.ps1
 $env:JANUS_DEMO_MODE = "1"
 python -m janus.server
 ```
@@ -156,34 +147,101 @@ The FastMCP server binds to `http://127.0.0.1:8000/mcp` with health checks at `h
 
 #### Demo Bearer Tokens & Access Scopes
 
-| Demo Token | Role | Actor | Accessible Senior IDs |
-|---|---|---|---|
-| `janus-demo-senior-margaret` | `senior` | `senior_voice` | `margaret_01` |
-| `janus-demo-caregiver-sarah` | `caregiver` | `caregiver_sarah` | `margaret_01` |
-| `janus-demo-caregiver-david` | `caregiver` | `caregiver_david` | `arthur_02` |
+| Demo Token | Role | Actor | Accessible Senior ID | Scope & Access Permissions |
+|---|---|---|---|---|
+| `janus-demo-senior-margaret` | `senior` | `senior_margaret` | `margaret_01` | Propose and confirm own non-clinical routines for Margaret Vance (`margaret_01`). Strictly forbidden from reading caregiver summaries, proposing/confirming shift handoffs, or accessing any other senior (e.g. `arthur_02`). |
+| `janus-demo-caregiver-sarah` | `caregiver` | `caregiver_sarah` | `margaret_01` | Full caregiver access for Margaret Vance (`margaret_01`): read daily summaries, log routines, propose & confirm shift handoffs. Cross-senior access (`arthur_02`) is strictly forbidden. |
+| `janus-demo-caregiver-david` | `caregiver` | `caregiver_david` | `arthur_02` | Full caregiver access for Arthur Pendelton (`arthur_02`): read daily summaries, log routines, propose & confirm shift handoffs. Access to `margaret_01` is strictly forbidden. |
+
+### Step 3: Verify Cryptographic Audit Trail
+
+Verify the SHA-256 tamper-evident hash chain integrity:
+
+```bash
+# On Linux / macOS / Git Bash:
+source .venv/bin/activate
+python -m janus.audit verify
+
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+python -m janus.audit verify
+```
 
 ### Step 4: Open the Dual-Screen Simulator
 
-Open `simulator/index.html` directly in any web browser (no local web server required):
-* **Left Screen**: Senior Echo Show 8 viewport (768×480) with high contrast 24pt+ text, speech recognition/synthesis, and rendered APL cards.
+Open `simulator/index.html` directly in any modern browser (no web server required):
+* **Left Screen**: Senior Echo Show 8 viewport (768×480) with high contrast 24pt+ text, voice synthesis/recognition, and rendered visual cards.
 * **Right Screen**: Off-site Family Caregiver Dashboard with live 3-second auto-sync polling loop and green highlight pulse on confirmed events.
-* **Refusal Test Row**: Click interactive buttons demonstrating invariant refusals (unconfirmed commit refusal, expired proposal ID, unknown senior ID, and clinical scope violation rejection).
+* **Refusal Test Row**: Click interactive refusal buttons demonstrating invariant enforcement (unconfirmed commit refusal, expired proposal ID, unknown senior ID, and clinical scope violation rejection).
 
-### Audit Trail Verification
+---
 
-Verify the cryptographic SHA-256 tamper-evident log integrity at any time:
+## 🛡️ Verify It Yourself (Security & Gate Live Audit)
+
+Run the standalone audit script [`scripts/judge_check.py`](scripts/judge_check.py) against any running Janus server (`JANUS_DEMO_MODE=1`) to independently prove all authentication, cross-senior isolation, role boundary, and two-step confirmation gate invariants:
+
 ```bash
-python -m janus.audit verify
+# With server running on http://127.0.0.1:8000:
+# On Linux / macOS / Git Bash:
+source .venv/bin/activate
+python scripts/judge_check.py --url http://127.0.0.1:8000
+
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+python scripts/judge_check.py --url http://127.0.0.1:8000
+```
+
+### Expected PASS Table
+
+```
+==============================================================================================================
+ JANUS (ELDERSYNC) -- SECURITY & CONFIRMATION GATE LIVE VERIFICATION
+ Target Server Base URL : http://127.0.0.1:8000
+ FastMCP /mcp Endpoint  : http://127.0.0.1:8000/mcp
+==============================================================================================================
+ [OK] Server probe healthy: service=janus-mcp version=0.1.0 protocol=2025-11-25
+
+Running Verification Checks (2.a through 2.i):
+
+ [PASS] Check 2.a: No Authorization header -> HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Missing authorization token.)
+ [PASS] Check 2.b: Garbage token -> HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Invalid or unrecognized authorization token.)
+ [PASS] Check 2.c: Wildcard-prefix 'janus-demo-x' -> HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Invalid or unrecognized authorization token.)
+ [PASS] Check 2.d: Senior Margaret reading Arthur (cross-senior) -> error_code=FORBIDDEN, writes=0, data_leaked=False
+ [PASS] Check 2.e: Senior token executing shift handoff -> error_code=FORBIDDEN, writes=0 (Role 'senior' is forbidden from executing 'propose_handoff'. Caregiver role is required.)
+ [PASS] Check 2.f: Caregiver Sarah reading Margaret -> status=success, senior=margaret_01, events=9, slots=8
+ [PASS] Check 2.g: log_daily_routine confirmation gate -> status=pending_confirmation, tx_id=tx_..., database_writes=0
+ [PASS] Check 2.h: verify_routine_state(confirm=True, no tx_id) -> status=error, error_code=MISSING_TRANSACTION_ID, database_writes=0
+ [PASS] Check 2.i: Confirm real tx (tx_...) -> Commit: status=COMMITTED, writes=1 | Replay: status=ALREADY_COMMITTED, writes=0
+
+===================================================================================================================
+ VERIFICATION SUMMARY TABLE
+===================================================================================================================
+| #   | Check Description                                    | Status | Observed Evidence                            |
+|-----|------------------------------------------------------|--------|----------------------------------------------|
+| 2.a | No Authorization header -> expect HTTP 401           | PASS   | HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Missi.. |
+| 2.b | Garbage token -> expect HTTP 401                     | PASS   | HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Inval.. |
+| 2.c | Wildcard-prefix 'janus-demo-x' -> expect HTTP 401    | PASS   | HTTP 401 UNAUTHORIZED (UNAUTHORIZED: Inval.. |
+| 2.d | Senior reading cross-senior arthur_02 -> FORBIDDEN (no data) | PASS   | error_code=FORBIDDEN, writes=0, data_leake.. |
+| 2.e | Senior token doing shift handoff -> FORBIDDEN        | PASS   | error_code=FORBIDDEN, writes=0 (Role 'seni.. |
+| 2.f | Caregiver token reading own senior -> OK             | PASS   | status=success, senior=margaret_01, events.. |
+| 2.g | log_daily_routine -> pending transaction_id, writes 0 | PASS   | status=pending_confirmation, tx_id=tx_...    |
+| 2.h | verify_routine_state(confirm=True, no tx) -> error, writes 0 | PASS   | status=error, error_code=MISSING_TRANSACTI.. |
+| 2.i | confirm real tx -> COMMITTED; replay -> ALREADY_COMMITTED | PASS   | Commit: status=COMMITTED, writes=1 | Repla.. |
+===================================================================================================================
+
+Final Verdict: 9/9 checks passed (0 failed).
+[SUCCESS] All security, authorization, and confirmation gate invariants verified!
 ```
 
 ---
 
 ## ⚠️ Known Limitations
 
-1. **No Physical Alexa Device Testing**: All visual card rendering is designed and tested against the official Alexa Presentation Language (APL 2024.3) document specification and validated in the browser simulator. Physical deployment to an Echo Show 8 device has not been performed or verified.
-2. **Demo-Mode Authentication Tokens**: Bearer token authorization validates static development tokens strictly when `JANUS_DEMO_MODE=1` is explicitly set. The three demo tokens (`janus-demo-senior-margaret`, `janus-demo-caregiver-sarah`, `janus-demo-caregiver-david`) enforce strict per-senior access boundaries (`margaret_01` vs `arthur_02`). The previous `janus-demo-*` prefix wildcard has been removed. In production (`JANUS_DEMO_MODE=0`), authorization requires an administrator token configured via the `JANUS_ADMIN_TOKEN` environment variable or explicit customer tokens. Production OAuth 2.0 / Login with Amazon (LWA) token exchange flows are not implemented.
-3. **Single-Node Local SQLite**: Persistence relies on a single-node SQLite database (`data/janus.db`) configured in WAL mode with serialized write concurrency. It is engineered for local edge execution and does not support multi-region clustering or horizontal distributed writes.
-4. **Non-Emergency & Non-Clinical Scope**: Janus is not an emergency or medical system and does not detect emergencies. It strictly tracks non-clinical lifestyle routines and caregiver shift handoffs. Urgent symptoms or medical emergencies must be directed to emergency medical services.
+1. **Simulator only, no Alexa+ or device testing**: All voice, screen, and dashboard interactions have been tested and verified exclusively within the local dual-screen browser simulator. No live skill deployment to the Alexa+ runtime, Alexa voice service, or physical Echo devices (Echo Show 8, Echo Dot) has been performed.
+2. **APL cards are built to spec but NOT validated in the Alexa console**: Visual card templates (`docs/apl/*.json`) and structured datasources strictly adhere to the Amazon Alexa Presentation Language (APL 2024.3) document specification and pass automated JSON schema contract tests (`tests/test_apl.py`). However, they have NOT been imported, previewed, or certified in the live Amazon Alexa Developer Console APL Authoring Tool.
+3. **Demo-mode tokens**: Authentication relies on static development Bearer tokens enabled strictly when `JANUS_DEMO_MODE=1` is set. The three demo tokens (`janus-demo-senior-margaret`, `janus-demo-caregiver-sarah`, `janus-demo-caregiver-david`) enforce strict per-senior access boundaries (`margaret_01` vs `arthur_02`). The wildcard prefix fallback (`janus-demo-*`) has been eliminated. In production (`JANUS_DEMO_MODE=0`), authorization requires an administrator token (`JANUS_ADMIN_TOKEN`) or customer tokens. Production OAuth 2.0 / Login with Amazon (LWA) token exchange flows are not implemented.
+4. **Single-node SQLite**: Data persistence relies on a single local SQLite database file (`data/janus.db`) configured in WAL mode with serialized write transactions. It is designed for single-node edge execution and does not support multi-region clustering, horizontal read/write replication, or distributed transactions.
+5. **Not an emergency or medical system**: Janus is not an emergency or medical system and does not detect emergencies or provide automated clinical triage. It strictly tracks routine non-clinical lifestyle activities (hydration, meals, vitamins, activity, wellness) and caregiver shift handoffs. Urgent symptoms or medical emergencies must be handled immediately by professional emergency medical services.
 
 ---
 
@@ -204,6 +262,7 @@ python -m janus.audit verify
 │   ├── DEPLOY.md                # Docker, Cloudflare tunnel, and cloud host guide
 │   └── apl/                     # Raw APL 2024.3 card templates (JSON)
 ├── scripts/
+│   ├── judge_check.py           # Standalone live security & gate verification script
 │   ├── smoke.sh                 # End-to-end POSIX reviewer smoke test script
 │   ├── smoke.ps1                # End-to-end PowerShell reviewer smoke test script
 │   ├── tunnel.sh                # Cloudflare quick-tunnel launcher for POSIX

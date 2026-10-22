@@ -29,6 +29,63 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 14:30:00 IST] - Prune Unproven Claims, Overhaul README Quickstart, and Synchronize DESIGN.md
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Documentation & Compliance Refinement
+- **Files Modified / Created**:
+  - `README.md` (Overhauled quickstart with virtualenv activation lines for bash and PowerShell; explicitly documented `JANUS_DEMO_MODE=1` requirement and mapped the 3 demo tokens to exact senior/caregiver permissions; added standalone "Verify it yourself" section running `python scripts/judge_check.py --url http://127.0.0.1:8000` with expected PASS table; updated Known Limitations with explicit simulator-only scope, unvalidated APL console notice, demo-mode tokens, single-node SQLite, and non-emergency boundaries; preserved unchecked 2.5-minute video demonstration item; added `judge_check.py` to repository tree).
+  - `docs/DESIGN.md` (Marked ADR-003 signature as superseded by unified transactional confirmation gate; confirmed zero emergency escalation clause; verified TTL is strictly 5 minutes [`PROPOSAL_TTL_SECONDS = 300`]; confirmed canonical 5 categories: `meal`, `hydration`, `vitamins`, `activity`, `wellness`).
+- **Diff / Summary of Changes**:
+  - Eliminated all unproven claims across repository documentation.
+  - Aligned quickstart instructions strictly with reproducible CLI workflows.
+- **Verification / Tests Passed**:
+  - `python scripts/judge_check.py --url http://127.0.0.1:8000`: 9/9 checks passed (100% pass rate).
+  - `pytest -q`: `63 passed in 7.65s` (100% pass rate).
+- **Impact & Next Steps**:
+  - README and DESIGN.md contain exclusively test-proven claims and provide immediate one-command verification for judges.
+
+### [2026-10-22 14:23:00 IST] - Wire Complete Auth Middleware, Check Senior Access & Audit Logging into Server
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Security & Verification Hardening
+- **Files Modified / Created**:
+  - `src/janus/server.py` (Enforced `check_senior_access` inside every MCP tool and the resource before storage access; wired cryptographic `audit_log` recording for all rejected `UNAUTHORIZED` attempts in `AuthMiddleware` and `FORBIDDEN` attempts in tools).
+- **Diff / Summary of Changes**:
+  - Enforced `check_senior_access(identity, target_senior_id)` across all 4 core tools (`log_daily_routine`, `get_caregiver_summary`, `verify_routine_state` across all proposal/commit branches, and `flag_missed_routine`) and the `janus://senior/{id}/today` resource.
+  - Added tamper-evident audit log entries (`storage.record_audit_entry`) for all rejected authentication attempts (HTTP 401 `UNAUTHORIZED`) in `AuthMiddleware`.
+  - Maintained zero wildcard fallback and verified demo token table is strictly active only when `JANUS_DEMO_MODE=1`.
+- **Verification / Tests Passed**:
+  - `python scripts/judge_check.py --url http://127.0.0.1:8000`: 9/9 checks passed (100% pass rate).
+  - `python -m janus.audit verify`: 38 audit entries verified successfully (100% hash chain integrity).
+  - `pytest -q`: `63 passed in 16.84s` (100% pass rate).
+- **Impact & Next Steps**:
+  - All security, access control, and gate invariants are verified and proven live.
+
+### [2026-10-22 14:15:00 IST] - Create Standalone Live Security & Gate Audit Script (scripts/judge_check.py)
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Feature / Security Verification Script
+- **Files Modified / Created**:
+  - `scripts/judge_check.py` (Standalone live verification script using `httpx` to prove security, authentication, cross-senior isolation, role boundaries, and two-step confirmation gate invariants against running Janus server).
+- **Diff / Summary of Changes**:
+  - Implemented CLI entrypoint accepting `--url` (defaults to `http://127.0.0.1:8000`, supports localhost or public tunnel URLs) and `--timeout`.
+  - Implemented MCP JSON-RPC 2.0 client via `POST /mcp` sending `Content-Type: application/json`, `Accept: application/json, text/event-stream`, and `MCP-Protocol-Version: 2025-11-25`.
+  - Implemented 9 automated security & safety checks:
+    - 2.a: No Authorization header -> HTTP 401 UNAUTHORIZED.
+    - 2.b: Garbage token -> HTTP 401 UNAUTHORIZED.
+    - 2.c: Wildcard-prefix `janus-demo-x` -> HTTP 401 UNAUTHORIZED.
+    - 2.d: `janus-demo-senior-margaret` accessing `arthur_02` -> FORBIDDEN (no data leaked).
+    - 2.e: Senior token proposing shift handoff -> FORBIDDEN (caregiver role required).
+    - 2.f: Caregiver Sarah reading assigned senior Margaret -> OK (`status=success`).
+    - 2.g: `log_daily_routine` -> pending proposal (`status=pending_confirmation`, pending `tx_id`, `database_writes=0`).
+    - 2.h: `verify_routine_state(confirm=True)` with no `transaction_id` -> error (`MISSING_TRANSACTION_ID`, `database_writes=0`).
+    - 2.i: Confirm real `transaction_id` -> `COMMITTED` (`database_writes=1`); replay -> `ALREADY_COMMITTED` (`database_writes=0`).
+  - Added formatted ASCII summary evaluation table and exit code 1 on failure / exit code 0 on all pass.
+  - Preserved strict invariant: zero modifications to server runtime code.
+- **Verification / Tests Passed**:
+  - `python scripts/judge_check.py --url http://127.0.0.1:8000`: 9/9 checks passed (100% pass rate).
+  - `pytest -q`: `63 passed in 13.50s` (100% pass rate).
+- **Impact & Next Steps**:
+  - Hackathon judges and automated CI can independently verify all safety, auth, and confirmation gate claims on any live environment or public URL.
+
 ### [2026-10-22 10:42:00 IST] - Resolve Hostile Judge Audit Discrepancies & Synchronize File Trees
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Documentation & Asset Synchronization

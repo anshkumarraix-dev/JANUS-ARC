@@ -2,9 +2,11 @@
 FROM python:3.12-slim
 
 # Prevent Python from writing bytecode and enable unbuffered output
+# Default port is 8000; honors $PORT provided by container hosts (Render, Cloud Run, etc.)
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     JANUS_HOST=0.0.0.0 \
+    PORT=8000 \
     JANUS_PORT=8000 \
     JANUS_DB_PATH=/app/data/janus.db
 
