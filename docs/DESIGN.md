@@ -84,8 +84,6 @@ Maintains an append-only, auditable ledger of shift handovers between family car
 
 ## 4. Four Core MCP Tools Specification
 
-### 4. Four Core MCP Tools Specification
-
 All tools are implemented using FastMCP v2 with typed Pydantic v2 request/response models (publishing full `inputSchema` and `outputSchema`), explicit `ToolAnnotations`, and LLM decision-making prompts.
 
 | Tool Name | Annotations | Return Type | Confirmation Gate |

@@ -12,7 +12,7 @@
 
 ## 🌟 The Problem & The Janus Solution
 
-* **The Problem**: Aging seniors struggle with small touchscreens, app logins, and complex mobile interfaces to log routine daily wellness events (hydration, meals, vitamins, fresh air walks). At the same time, adult children and family caregivers suffer from anxious, fragmented group text threads wondering: *"Did Mom drink water this afternoon? Has someone walked with her yet?"*
+* **The Problem**: Aging seniors struggle with small touchscreens, app logins, and complex mobile interfaces to log routine daily wellness events (hydration, meals, vitamins, activity). At the same time, adult children and family caregivers suffer from anxious, fragmented group text threads wondering: *"Did Mom drink water this afternoon? Did she finish her morning activity?"*
 * **The Janus Solution**: Janus turns any Alexa+ enabled device into an ambient, zero-touch routine assistant. Seniors speak naturally (*"Alexa, tell Janus I finished my morning oatmeal and drank a glass of water"*), while off-site family caregivers receive real-time, glanceable Echo Show visual timeline cards. Caregivers transferring shifts execute safe, verified handoffs using voice-confirmed safety gates.
 
 ---
@@ -223,9 +223,11 @@ python -m janus.audit verify
 │       ├── schedule.py          # Schedule slot window tracker and missed routine scanner
 │       └── tools/               # Pydantic v2 tool request & response models
 │           ├── __init__.py
+│           ├── base.py          # Shared response schemas and Echo Show card base models
 │           ├── routine.py
 │           └── handoff.py
 ├── tests/
+│   ├── conftest.py              # Pytest isolation fixtures and auth mock context
 │   ├── test_janus.py            # Contract, latency, and integration test suite
 │   ├── test_apl.py              # APL schema and datasource binding tests
 │   ├── test_gate.py             # Confirmation gate and concurrency tests

@@ -25,7 +25,7 @@
 1. **Target & Protocol**: Implement FastMCP v2 over Streamable HTTP (MCP spec `2025-11-25`) mounted at `http://127.0.0.1:8000/mcp`.
 2. **Strict Safety Rule (Confirmation Gate)**: All write/state-mutating tools MUST enforce a two-step confirmation gate (`confirm: bool = False`). When `confirm=False`, return a read-only proposal preview (`status: "PROPOSAL_PREVIEW"` with 0 database writes). Only commit writes when `confirm=True`.
 3. **Latency Rule**: Local tool execution must complete in under 100 ms locally (round-trip < 500 ms).
-4. **Scope Boundary**: Strictly maintain non-clinical elder daily routine logs (hydration, walks, meals, check-ins) and family caregiver shift handoffs. DO NOT add features outside the official 4 core tools:
+4. **Scope Boundary**: Strictly maintain non-clinical elder daily routine logs (hydration, meals, vitamins, activity, wellness) and family caregiver shift handoffs. DO NOT add features outside the official 4 core tools:
    - `log_daily_routine(senior_id: str, routine_type: str, logged_by: str, notes: str = "") -> dict`
    - `get_caregiver_summary(senior_id: str, date: Optional[str] = None) -> dict`
    - `verify_routine_state(senior_id: str, action_type: str, payload: dict, confirm: bool = False) -> dict`

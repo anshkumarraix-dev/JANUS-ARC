@@ -682,7 +682,7 @@ def save_apl_documents(target_dir: str = "docs/apl") -> None:
             "payload": {
                 "header": "Shift Handoff • David → Sarah",
                 "seniorContext": "Senior: Margaret Vance",
-                "notes": "Margaret walked 20m in garden; afternoon water reminder given.",
+                "notes": "Margaret completed 20m activity in garden; afternoon water reminder given.",
                 "statusText": "✅ Shift Handed Off to SQLite",
                 "senior_id": "margaret_01",
                 "transaction_id": "tx_sample_789012",

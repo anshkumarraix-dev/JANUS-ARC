@@ -29,6 +29,22 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 10:42:00 IST] - Resolve Hostile Judge Audit Discrepancies & Synchronize File Trees
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Documentation & Asset Synchronization
+- **Files Modified / Created**:
+  - `README.md` (Added `src/janus/tools/base.py` and `tests/conftest.py` to the repository directory tree; updated problem statement narrative to strictly use canonical `activity` category instead of `fresh air walks`).
+  - `docs/apl/handoff_confirm_datasource.json` (Updated sample note from `Margaret walked 20m in garden` to `Margaret completed 20m activity in garden`).
+  - `src/janus/apl.py` (Synchronized sample mock handoff note with updated APL datasource).
+  - `docs/DESIGN.md` (Removed duplicate heading `### 4. Four Core MCP Tools Specification`).
+  - `AGENTS.md` (Updated scope boundary routine examples from `(hydration, walks, meals, check-ins)` to canonical `(hydration, meals, vitamins, activity, wellness)`).
+- **Verification / Tests Passed**:
+  - `pytest -q`: `63 passed in 7.89s` (100% pass rate).
+  - `pytest -q tests/test_apl.py`: `6 passed in 1.67s`.
+  - Re-verified `git ls-files` exactly matches `README.md` file tree.
+- **Impact & Next Steps**:
+  - 100% of judge-identified discrepancies resolved. Clean working tree ready for push.
+
 ### [2026-10-22 10:25:00 IST] - Doc-Code Alignment: PROPOSAL_TTL_SECONDS Constant, Categories Invariant, ADR-003 Superseded Note, and Quickstart Overhaul
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Documentation & Quality Assurance (Enforced Truth-in-Docs, Doc-Constant Sync Test, Refactored Quickstart)
