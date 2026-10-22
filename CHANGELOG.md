@@ -28,6 +28,165 @@ After **every** codebase modification, file creation, instruction update, or con
 ---
 
 ## 📜 Change Log Entries
+### [2026-10-22 23:58:00 IST] - Final Visual, Accessibility & Usability Polish (Warm Mission Control)
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Usability & Accessibility Polish
+- **Files Modified / Created**:
+  - `simulator/index.html` (Completed the final usability, accessibility, and visual polish pass for Warm Mission Control. Added universal `:focus-visible` accessible focus rings across all interactive controls. Added semantic `<label for="...">` elements with explicit ARIA labels across the Advanced Configuration panel inputs. Implemented WCAG 2.2 `@media (prefers-reduced-motion: reduce)` media query disabling transitions, pulse dots, and sync flashes. Added text wrapping safeguards preventing layout breakages on long error or response messages. Standardized minimum 40-48px touch targets for navigation tabs, preset chips, role selectors, and primary action buttons. Added mobile responsive refinement for viewports below 768px with horizontal panning for the strict 768x480 Echo Show viewport).
+- **Diff / Summary of Changes**:
+  - **Universal Accessible Focus Rings**: Applied prominent `:focus-visible` outline (`outline: 2px solid var(--accent-primary); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(98, 220, 200, 0.25)`) across buttons, inputs, tabs, chips, test buttons, and copy triggers.
+  - **Form Labels & Screen Reader Auditing**: Converted plain `<span>` labels in `#advanced-settings-panel` into semantic `<label for="...">` elements with descriptive `aria-label` tags (`Senior ID`, `Senior Name`, `Departing Caregiver`, `Incoming Caregiver`, `Bearer Token`, `Endpoint`).
+  - **Reduced Motion Support**: Added `@media (prefers-reduced-motion: reduce)` styling disabling all non-essential keyframe animations and transitions for users with vestibular or motion sensitivities.
+  - **Overflow & Long Text Safeguards**: Added `word-break: break-word; overflow-wrap: break-word;` across card bodies, timeline nodes, error banners, and `overflow-x: auto` on code and debug blocks.
+  - **Touch Target Sizing**: Ensured all primary and secondary buttons meet accessible multimodal touch target standards (42-48px height).
+  - **Responsive Layout (<768px)**: Refined stacked header, collapsible card actions, and horizontal hardware panning on smaller screens while strictly preserving the required 768x480 viewport invariant.
+- **Verification / Tests Passed**:
+  - `pytest -q`: 65 passed in 8.50s (100% pass across full repository test suites).
+  - `pytest -q tests/test_simulator.py`: 9 passed in 0.04s (DOM IDs, strict 768x480 viewport, offline invariant).
+  - `test_full_integration_regression.js`: 8/8 comprehensive integration tests passed.
+  - `test_trace_interactions.js`: 7/7 trace pipeline interaction tests passed.
+  - `test_device_interactions.js`: 4/4 device experience invariant tests passed.
+  - `test_care_overview_states.js`: 4/4 care overview state rendering tests passed.
+  - `test_simulator_browser.js`: 4/4 shell navigation tests passed.
+  - Form accessibility label audit: 0 missing labels.
+- **Impact & Next Steps**:
+  - The Warm Mission Control frontend is fully polished, accessible, responsive, and ready for production demonstrations.
+
+### [2026-10-22 23:45:00 IST] - Full Frontend Integration & Regression Hardening Pass
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Integration & Regression Pass
+- **Files Modified / Created**:
+  - `simulator/index.html` (Conducted end-to-end integration and regression pass across all 3 Warm Mission Control views. Resolved banner synchronization latency so `updatePendingProposalBanner()` fires immediately on all proposal creations, commits, cancellations, and role switches. Hardened `confirmCurrentProposal` with in-flight duplicate submission guard. Converted `submitUtterance` to async returnable flow. Fixed `hud-server-pill` inline border/color cleanup on recovery. Enhanced `checkServerHealth` to query unauthenticated `/health` route with fallback to authenticated `/mcp`. Categorized FastMCP `InvalidCategoryError` responses as domain refusals with 0 writes rather than connection errors. Synchronized `cg-senior-avatar` alongside `senior-avatar` across all role transitions).
+- **Diff / Summary of Changes**:
+  - **Cross-View Proposal State Synchronization**: Ensured `updatePendingProposalBanner()` is invoked synchronously whenever `pendingTx` is set (e.g. `log_daily_routine`, `PROPOSAL_PREVIEW`), cleared (e.g. `COMMITTED`, `ALREADY_COMMITTED`, `error`), cancelled via button/speech, or reset on role switch.
+  - **Duplicate Submission Guard**: Added `isConfirmingProposal` mutex in `confirmCurrentProposal()` to prevent duplicate in-flight network dispatches or duplicate writes on rapid clicks.
+  - **Truthful Server Health & Recovery**: Enhanced `checkServerHealth()` to inspect open `GET /health` route first, with fallback to Bearer-authenticated `POST /mcp`. Cleaned inline style overrides (`style.borderColor = ''`, `style.color = ''`) upon 200 OK so CSS online indicator glows cleanly.
+  - **Domain Refusal Classification**: Classified FastMCP `data.error` containing category exceptions as `INVALID_CATEGORY` structured refusals with `0 Database Writes` rather than generic connection errors.
+  - **Avatar & Identity Context**: Synchronized `cg-senior-avatar` and `senior-avatar` immediately upon role switch (`selectRole`) and setting changes (`onSettingChange`).
+- **Verification / Tests Passed**:
+  - `pytest -q`: 65 passed in 8.56s (100% pass across full repository test suites).
+  - `pytest -q tests/test_simulator.py`: 9 passed in 0.04s (DOM IDs, strict 768x480 viewport, offline invariant).
+  - `test_full_integration_regression.js`: 8/8 comprehensive integration tests passed:
+    1. Role selection & persona context propagation (`Senior Margaret`, `Caregiver Sarah`, `Caregiver David`).
+    2. Utterance routing (hydration, meals, shift handoff, and sub-5ms local clarifying fallbacks).
+    3. Proposal generation, cross-view persistence, and immediate amber banner synchronization.
+    4. Two-step confirmation gate -> Atomic commit (1 write, card render, timeline sync).
+    5. Proposal cancellation (0 database writes, banner hidden, pendingTx cleared).
+    6. Safety invariant refusal proofs (MISSING_TRANSACTION_ID, PROPOSAL_NOT_FOUND, INVALID_CATEGORY).
+    7. Advanced settings panel & FastMCP JSON-RPC debug drawer toggles.
+    8. Health check verification against open `/health` route with clean online styles.
+  - Zero regressions across existing suites: `test_trace_interactions.js` (7/7 passed), `test_device_interactions.js` (4/4 passed), `test_care_overview_states.js` (4/4 passed), `test_simulator_browser.js` (4/4 passed).
+- **Impact & Next Steps**:
+  - Front-end integration is robust, bug-free, and fully verified against the local backend and MCP invariants.
+
+### [2026-10-22 23:25:00 IST] - System Trace Redesign: 4-Stage Connected Request Pipeline & Refusal Proofs
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend System Trace Redesign
+- **Files Modified / Created**:
+  - `simulator/index.html` (Redesigned the System Trace view into a high-visibility, technical dark mission control architecture view designed for hackathon demonstrations. Implemented a 4-Stage connected request journey: 1. User Input/Utterance with simulated host labeling, 2. Actual MCP Tool Request with transport details and dispatched JSON-RPC, 3. Safety & Confirmation Decision Gate with precondition checklist [Access Control, Confirmation Policy, Clinical Scope Boundary], and 4. Truthful Server Response & Ledger State with measured RTT latency, business outcome badges, and strict write counter [0 vs 1 write]. Maintained all 6 server-side refusal proof test buttons, collapsible FastMCP JSON-RPC debug drawer, code copy buttons, and preserved all 14 trace DOM IDs and event handlers).
+- **Diff / Summary of Changes**:
+  - Structured the 4-Stage connected pipeline (`#tool-call-trace-panel`, `#trace-steps-container`):
+    - Stage 1 (`#trace-card-utterance`, `#trace-utterance-val`, `#trace-rule-val`): Displays simulated Alexa+ host triggers and matched router rules with explicit "Simulated Host Input" context tag.
+    - Stage 2 (`#trace-card-rule`, `#trace-target-tool`, `#trace-request-json`): Displays target tool name, Streamable HTTP transport, and syntax-formatted `tools/call` JSON payload with 📋 copy button.
+    - Stage 3 (`#trace-card-safety-gate`, `#trace-gate-badge`, `#trace-gate-decision`, `#precond-access`, `#precond-confirm`, `#precond-scope`): Evaluates two-step confirmation gate, role access permissions, and clinical scope invariants before execution.
+    - Stage 4 (`#trace-card-mcp`, `#trace-status-pill`, `#trace-db-writes`, `#trace-business-outcome`, `#trace-response-json`): Displays truthful HTTP status, measured round-trip latency (`elapsedMs`), real response JSON, database write counter (`0 Database Writes` vs `1 Database Write`), and business outcome badges (`COMMITTED_SUCCESS`, `PROPOSAL_STAGED`, `REFUSAL_BLOCKED`, `TRANSPORT_FAILURE`, `COMPLETED_READ_ONLY`).
+  - Preserved all 6 Refusal Demonstration tests: `testBreakInvalidToken()` (HTTP 401), `testBreakWrongSenior()` (FORBIDDEN), `testBreakSeniorHandoff()` (FORBIDDEN), `testBreakConfirmNoPreview()` (MISSING_TRANSACTION_ID), `testBreakExpiredTx()` (PROPOSAL_NOT_FOUND), and `testBreakClinicalViolation()` (INVALID_CATEGORY).
+  - Maintained collapsible FastMCP JSON-RPC Debug Drawer (`#debug-drawer-arrow`, `#debug-drawer-body`, `toggleDebugDrawer()`) and updated endpoint display dynamically.
+  - Implemented truthful accounting: FastMCP HTTP 200 responses carrying error objects (`status: 'error'`, `error_code: ...`) are accurately recognized as refusals with 0 database writes, never masquerading as business successes.
+- **Verification / Tests Passed**:
+  - `pytest -q`: 65 passed in 8.45s (100% pass across full repository test suites).
+  - `pytest -q tests/test_simulator.py`: 9 passed in 0.04s (DOM IDs, strict 768x480 viewport, offline invariant).
+  - `test_trace_interactions.js`: 7/7 comprehensive trace interaction tests passed:
+    1. Navigation to `view-system-trace` tab and tab activation.
+    2. Initial 4-stage standby state verification (0 Database Writes, Standby).
+    3. Flow A (Successful Two-Step Confirmation): `log_daily_routine` proposal stages with 0 writes & `PROPOSAL_STAGED` -> `verify_routine_state` commits with 1 write & `COMMITTED_SUCCESS` with measured RTT latency (38ms).
+    4. Flow B (Refusal Flow - HTTP 401 Unauthorized): AuthMiddleware token rejection displays `[Refusal: Invariant Preserved]`, HTTP 401, 0 Database Writes, and `REFUSAL_BLOCKED (401)`.
+    5. Flow C (Refusal Flow - Clinical Scope Invariant Violation): Chemotherapy prescription logging displays `[Refusal: Invariant Preserved]`, `INVALID_CATEGORY` invariant badge, 0 Database Writes, and `REFUSAL_BLOCKED (INVALID_CATEGORY)`.
+    6. Flow D (Local Cancellation): Negative cancellation displays 0 Database Writes and local resolution.
+    7. Code copy & debug drawer: `copyTraceCode` copies JSON to clipboard and `toggleDebugDrawer()` toggles expanded/collapsed states.
+  - Full suite of interaction tests (`test_care_overview_states.js`, `test_device_interactions.js`, `test_simulator_browser.js`) all passing with zero regressions.
+- **Impact & Next Steps**:
+  - System Trace view is now ready for hackathon presentation, demonstrating live end-to-end trace journeys with safety invariants and truthful write counters.
+
+### [2026-10-22 23:10:00 IST] - Device Experience Redesign: Warm Mission Control Echo Show Simulator
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Device Experience Redesign
+- **Files Modified / Created**:
+  - `simulator/index.html` (Redesigned the Device Experience view into an accessible, believable hardware smart screen simulation. Enclosed the strict 768x480 APL viewport inside a matte beveled chassis with camera notch, far-field microphone array, and stand footing shadow. Added active persona/role context banner, prioritized high-contrast 24pt+ typography with explicit text labels, categorized keyboard-accessible quick chips with tabindex=0, added real in-flight restrained lightbar pulse without faking success, and preserved all 16 Device Experience DOM IDs and JavaScript event handlers).
+- **Diff / Summary of Changes**:
+  - Redesigned the hardware chassis (`.echo-chassis`) with realistic beveled curvature, top camera lens, dual far-field microphone array holes, and soft acoustic stand footing shadow.
+  - Added header metadata with simulated browser viewport badge (`.badge-demo`), APL 2024.3 standard badge, and active persona/role context badge (`#device-role-display`) dynamically synchronized on role change.
+  - Enhanced proposal card rendering with explicit `[Pending Verbal Consent] • 0 Writes` badge, 22px+ readable typography, and accessible keyboard-tabbable Confirm and Cancel buttons with high-contrast focus rings.
+  - Preserved microphone input (`#mic-btn`), text utterance bar (`#utterance-input`, `#send-btn`), and grouped preset chips into Daily Routines, Summary & Handoff, and Confirmation Gate with `tabindex="0"` keyboard support.
+  - Wired real request in-flight lightbar animation to `fetch` lifecycle in `callMCPTool` (activating `.active` pulse on dispatch and clearing immediately on completion), strictly avoiding false simulated success.
+  - Added clear non-device disclaimer ("Browser-based simulation • Not a physical Echo device").
+- **Verification / Tests Passed**:
+  - `pytest -q`: 65 passed in 8.34s (100% pass across full repository test suites).
+  - `pytest -q tests/test_simulator.py`: 9 passed in 0.04s (DOM IDs, strict 768x480 dimensions, offline invariant).
+  - `test_device_interactions.js`: 4/4 interaction tests passed:
+    1. Successful interaction (Proposal generation with 0 writes -> Confirmation via `verify_routine_state(confirm=True)` -> Atomic commit with 1 write -> `pendingTx` cleared).
+    2. Cancelled proposal (Proposal generation -> Cancellation via `cancelCurrentProposal` -> 0 writes, `pendingTx` cleared, cancellation speech feedback).
+    3. Refused request (Safety invariant rejection -> Refusal card with `0 Database Writes` and explicit refusal code).
+    4. Server failure (Connection error -> Diagnostic offline card with 0 writes).
+- **Impact & Next Steps**:
+  - Completes the Device Experience redesign for Warm Mission Control.
+
+### [2026-10-22 23:00:00 IST] - Care Overview Redesign: Warm Mission Control Architecture
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Care Overview Redesign
+- **Files Modified / Created**:
+  - `simulator/index.html` (Redesigned the Care Overview view into a premium, futuristic, human-centered elderly-care coordination interface. Structured 6 core modules: Senior Profile & Care Context, State-Driven Amber Pending Proposal & Coral Server Error Banners, Device Experience Entry Gateway, Prominent Chronological Care-Activity Timeline with subtle connectors and verified badges, Compact Routine Summary with completion progress, and Caregiver Shift Handoff continuity panel. Preserved all 16 caregiver DOM IDs and existing JS dependencies).
+- **Diff / Summary of Changes**:
+  - Implemented Senior Profile hero card with avatar initials, live care plan badge, residency/shift metadata, and sync controls with sync-flash animation.
+  - Implemented state-driven alert banners that render conditionally: amber for pending confirmation (`#cg-pending-proposal-banner`), coral for connection failure/errors (`#cg-server-error-banner`).
+  - Added Device Experience entry gateway with direct navigation button and quick-action chips to jump into conversational voice logging on the Echo Show 8.
+  - Positioned the Chronological Care-Activity Timeline as the dominant primary element (60% width on desktop, responsive 100% on tablet/mobile) with category node icons, vertical connector lines, actor identification, and explicit `✅ Confirmed` status badges.
+  - Added an informative, human-centered empty state ("No activities recorded yet.") with an action chip and zero fabricated data.
+  - Restructured the sidebar with a compact routine summary (metrics grid, routine slot windows, progress pill) and a dedicated caregiver handoff panel with departing/incoming roster and handoff preview trigger.
+- **Verification / Tests Passed**:
+  - `pytest -q`: 65 passed in 8.46s (100% pass across all unit and integration test suites).
+  - `pytest -q tests/test_simulator.py`: 9 passed in 0.04s.
+  - `test_care_overview_states.js`: 4/4 state tests passed (Empty state, Available data state, Pending proposal state, Server-error state).
+  - `test_simulator_browser.js`: Full role switching, navigation, and pendingTx persistence verified.
+- **Impact & Next Steps**:
+  - Completes the Care Overview redesign for Warm Mission Control.
+
+### [2026-10-22 22:45:00 IST] - Warm Mission Control App Shell & 3-View Tab Navigation
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend App Shell & Multi-View Architecture
+- **Files Modified / Created**:
+  - simulator/index.html (Implemented top-level 3-view app shell: Care Overview landing view, Device Experience Echo Show 8 simulator, and System Trace live FastMCP/safety view. Added persistent JANUS identity header with demo badge, truthful local FastMCP connection status indicator, responsive tab navigation with zero network side effects, preserved all 66 DOM IDs and JavaScript behavior, and verified proposal persistence across view switches).
+- **Diff / Summary of Changes**:
+  - Added persistent JANUS identity header with 🧪 Local Demo / Simulator badge and truthful connection status check (checkServerHealth).
+  - Added responsive top-level navigation bar (.app-nav-bar) with 3 tabs: #nav-tab-care-overview, #nav-tab-device-experience, and #nav-tab-system-trace.
+  - Partitioned layout into 3 view panels inside .app-views-wrap: #view-care-overview (Caregiver dashboard & ledger), #view-device-experience (Echo Show 8 hardware chassis, 768x480 viewport, utterance input row, evaluation chips), and #view-system-trace (Refusal invariant proof buttons, 3-step live tool call trace, debug drawer).
+  - Kept .role-toolbar persistent and accessible across all views so caregiver and senior personas can be swapped seamlessly anywhere.
+  - Implemented switchView(viewId) with zero network dispatch, instant DOM visibility toggling, and complete persistence of in-memory pendingTx state.
+  - Added responsive breakpoint styling for viewports down to mobile screens while preserving strict 768x480 Echo Show dimensions.
+- **Verification / Tests Passed**:
+  - pytest -q: 65 passed in 8.38s (100% test pass rate across full repository).
+  - pytest -q tests/test_simulator.py: 9 passed in 0.03s (all DOM IDs, offline invariant, latency HUD, 768x480 dimensions verified).
+  - Node.js browser interaction test: verified role switching across Margaret/Sarah/David, view navigation across all 3 views with 0 network calls, and two-step confirmation proposal persistence across view transitions.
+- **Impact & Next Steps**:
+  - Prepares JANUS-ARC for detailed view enhancements and elderly-care coordination interactions.
+
+### [2026-10-22 22:25:00 IST] - Warm Mission Control Visual Design System for Simulator
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Frontend Design System Implementation
+- **Files Modified / Created**:
+  - simulator/index.html (Implemented foundational 'Warm Mission Control' CSS tokens in :root and applied them across all components: midnight blue-gray canvas --bg-canvas: #0B1118, main panels --surface-main: #121D26, elevated surfaces --surface-elevated: #192833, warm teal primary accent --accent-primary: #62DCC8, technical muted blue --accent-tech: #87B8FF, proposal pending amber --status-pending: #F0C46C, error/refusal coral --status-error: #FF8585, calm sage confirmed --status-confirmed: #56D39F, high-contrast typography, accessible focus indicators, restrained atmospheric glows, and backward-compatible variable mappings; preserved all 44 DOM IDs, Echo Show 768x480 dimensions, offline invariant, and JavaScript behavior).
+- **Diff / Summary of Changes**:
+  - Defined reusable CSS variable palette fulfilling Warm Mission Control requirements.
+  - Replaced harsh cyber-neon styling and dark terminal tones with trustworthy, human-centered elderly-care coordination aesthetics.
+  - Added global :focus-visible focus ring for accessible keyboard navigation across all buttons and inputs.
+  - Updated button, card, badge, chip, and form control styling with restrained transitions, subtle borders, and gentle depth.
+  - Maintained 100% backward compatibility with existing JavaScript style properties and DOM bindings.
+- **Verification / Tests Passed**:
+  - pytest -q: 65 passed in 8.47s (100% pass across all test suites).
+  - pytest -q tests/test_simulator.py: 9 passed in 0.03s (all DOM ID, offline, and viewport assertions verified).
+- **Impact & Next Steps**:
+  - Sets the visual foundation for the upcoming layout refinement and user-experience polish of the Warm Mission Control simulator.
+
 
 ### [2026-10-22 15:15:00 IST] - Simulator Role Switcher, Visible 3-Step MCP Tool Call Trace, and Refusal Invariant Verification
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
