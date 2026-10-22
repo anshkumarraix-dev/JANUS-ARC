@@ -109,3 +109,90 @@ def test_demo_documentation_exists():
     assert "There's nothing waiting for confirmation." in content
     assert "Try to Break It" in content
     assert "Margaret Vance" in content
+
+
+# =============================================================================
+# Background Polling, Speak Option & Voice Toggle Invariant Tests
+# =============================================================================
+
+def extract_function_body(source: str, func_name: str) -> str:
+    """Extract JavaScript function body by name using brace matching."""
+    pattern = rf"function\s+{func_name}\s*\([^)]*\)\s*\{{"
+    match = re.search(pattern, source)
+    if not match:
+        pattern = rf"async\s+function\s+{func_name}\s*\([^)]*\)\s*\{{"
+        match = re.search(pattern, source)
+    assert match, f"Function {func_name} not found in source."
+    start_idx = match.end() - 1
+    depth = 0
+    for i in range(start_idx, len(source)):
+        if source[i] == "{":
+            depth += 1
+        elif source[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[match.start() : i + 1]
+    raise ValueError(f"Mismatched braces while extracting {func_name}")
+
+
+def validate_poll_caregiver_summary_source(fn_body: str) -> None:
+    """Validator that raises AssertionError if pollCaregiverSummary does not strictly satisfy safety invariants."""
+    assert "callMCPTool" in fn_body, "pollCaregiverSummary must call callMCPTool"
+    assert re.search(r"onSuccess\s*:", fn_body), "pollCaregiverSummary MUST pass onSuccess to callMCPTool"
+    assert re.search(r"speak\s*:\s*false", fn_body), "pollCaregiverSummary MUST pass speak: false"
+    assert "setAlexaSpeaking" not in fn_body, "pollCaregiverSummary must never call setAlexaSpeaking directly"
+    assert "renderSummaryOnEchoShow" not in fn_body, "pollCaregiverSummary must never call renderSummaryOnEchoShow directly"
+    assert "screen-body" not in fn_body, "pollCaregiverSummary must never touch #screen-body"
+
+
+def test_poll_caregiver_summary_passes_on_success_and_never_speaks(simulator_html: str):
+    """Assert pollCaregiverSummary passes onSuccess, speak: false, and never speaks or repaints senior screen."""
+    fn_body = extract_function_body(simulator_html, "pollCaregiverSummary")
+    validate_poll_caregiver_summary_source(fn_body)
+
+    # Prove test failure if onSuccess is omitted or disabled
+    buggy_body = fn_body.replace("onSuccess", "disabledSuccess")
+    with pytest.raises(AssertionError, match="onSuccess"):
+        validate_poll_caregiver_summary_source(buggy_body)
+
+    # Prove test failure if speak: false is removed or set to true
+    buggy_speak = fn_body.replace("speak: false", "speak: true")
+    with pytest.raises(AssertionError, match="speak: false"):
+        validate_poll_caregiver_summary_source(buggy_speak)
+
+
+def test_call_mcp_tool_guards_speak_and_screen_body(simulator_html: str):
+    """Assert callMCPTool guards speaking and #screen-body updates behind explicit speak option."""
+    fn_body = extract_function_body(simulator_html, "callMCPTool")
+    assert "options.speak" in fn_body or "canSpeak" in fn_body
+    assert "canSpeak" in fn_body and "setAlexaSpeaking" in fn_body
+    assert "else if (canSpeak)" in fn_body or "if (canSpeak)" in fn_body
+
+
+def test_set_alexa_speaking_ignores_duplicate_within_8_seconds(simulator_html: str):
+    """Assert setAlexaSpeaking ignores requests to speak text identical to last spoken text within 8 seconds."""
+    fn_body = extract_function_body(simulator_html, "setAlexaSpeaking")
+    assert "lastSpokenText" in simulator_html
+    assert "lastSpokenTime" in simulator_html
+    assert "8000" in fn_body, "setAlexaSpeaking must enforce an 8-second (8000ms) deduplication window"
+    assert "lastSpokenText" in fn_body
+    assert "return" in fn_body
+
+
+def test_visible_voice_toggle_in_status_bar(simulator_html: str):
+    """Assert a visible Voice on/off toggle exists in status bar, default ON, remembered in memory only."""
+    assert 'id="hud-voice-toggle"' in simulator_html
+    assert "toggleVoiceOutput" in simulator_html
+    assert "let isVoiceEnabled = true" in simulator_html
+    voice_fn_body = extract_function_body(simulator_html, "toggleVoiceOutput")
+    assert "localStorage" not in voice_fn_body
+    assert "sessionStorage" not in voice_fn_body
+
+
+def test_summary_speech_uses_dynamic_senior_name(simulator_html: str):
+    """Assert summary speech replaces hardcoded 'Margaret's summary' with active senior display name."""
+    assert "Margaret's summary for today" not in simulator_html
+    fn_body = extract_function_body(simulator_html, "handleToolSuccess")
+    assert "summary for today" in fn_body
+    assert "senior-display-name" in fn_body or "senior_name" in fn_body
+
