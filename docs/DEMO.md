@@ -17,10 +17,15 @@ Demonstrate the core value proposition of Janus:
 ## ⚙️ Pre-Demo Setup
 
 ### 1. Launch FastMCP v2 Server
-Open a terminal in the project root and start the server:
+Open a terminal in the project root and start the server with demo mode enabled:
 ```bash
-# In Windows PowerShell or Bash
-python src/janus/server.py
+# On Linux / macOS / Git Bash:
+export JANUS_DEMO_MODE=1
+python -m janus.server
+
+# On Windows PowerShell:
+$env:JANUS_DEMO_MODE = "1"
+python -m janus.server
 ```
 *Expected log output*:
 ```
@@ -143,10 +148,10 @@ file:///C:/Users/Lenovo/Downloads/JANUS%20ARC/simulator/index.html
 
 | Test Button | Action Dispatched | Expected Server Refusal | Screen Feedback |
 | :--- | :--- | :--- | :--- |
-| **1. Confirm With No Preview** | `verify_routine_state(confirm=True, transaction_id="")` | Error code `1002`: `MISSING_TRANSACTION_ID` | Red/amber refusal banner: *"confirm=True REQUIRES a valid transaction_id of a live pending proposal."* |
-| **2. Expired / Invalid TX ID** | `verify_routine_state(confirm=True, transaction_id="tx_expired_demo_99999")` | Error code `1001`: `PROPOSAL_NOT_FOUND` | Red/amber refusal banner: *"Proposal 'tx_expired_demo_99999' was not found or has expired."* |
+| **1. Confirm With No Preview** | `verify_routine_state(confirm=True, transaction_id="")` | `ErrorCode.MISSING_TRANSACTION_ID` | Red/amber refusal banner: *"confirm=True REQUIRES a valid transaction_id of a live pending proposal."* |
+| **2. Expired / Invalid TX ID** | `verify_routine_state(confirm=True, transaction_id="tx_expired_demo_99999")` | `ErrorCode.PROPOSAL_NOT_FOUND` | Red/amber refusal banner: *"Proposal 'tx_expired_demo_99999' was not found or has expired."* |
 | **3. Unknown Senior ID** | `get_caregiver_summary(senior_id="unknown_senior_999")` | Handled gracefully | Returns 0 events and empty schedule without crashing. |
-| **4. Clinical Scope Violation** | `log_daily_routine(category="chemotherapy_prescription")` | Error code `1004`: `INVALID_CATEGORY` | Red refusal banner: *"Janus is strictly non-clinical. Category 'chemotherapy_prescription' is prohibited."* |
+| **4. Clinical Scope Violation** | `log_daily_routine(category="chemotherapy_prescription")` | `ErrorCode.INVALID_CATEGORY` | Red refusal banner: *"Janus is strictly non-clinical. Category 'chemotherapy_prescription' is prohibited."* |
 
 ---
 

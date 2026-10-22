@@ -33,3 +33,6 @@ data/
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Scratch and local temporary files
+scratch/

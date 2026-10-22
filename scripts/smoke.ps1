@@ -50,6 +50,7 @@ $hostName = if ($env:JANUS_HOST) { $env:JANUS_HOST } else { "127.0.0.1" }
 $env:JANUS_PORT = $port
 $env:JANUS_HOST = $hostName
 $env:JANUS_LOG_LEVEL = "warning"
+$env:JANUS_DEMO_MODE = "1"
 
 Write-Host "[5/6] Starting Janus server in background on http://${hostName}:${port}..." -ForegroundColor Green
 $serverProc = Start-Process -FilePath $venvPython -ArgumentList "-m janus.server" -PassThru -NoNewWindow
@@ -96,7 +97,9 @@ try {
 
     $headers = @{
         "Content-Type" = "application/json"
+        "Accept" = "application/json, text/event-stream"
         "MCP-Protocol-Version" = "2025-11-25"
+        "Authorization" = "Bearer janus-demo-caregiver-sarah"
     }
 
     $toolsResp = Invoke-RestMethod -Uri "http://${hostName}:${port}/mcp" -Method Post -Body $body -Headers $headers
@@ -114,6 +117,15 @@ try {
     Write-Host ""
     Write-Host "===================================================================" -ForegroundColor Cyan
     Write-Host "SMOKE TEST PASSED! All endpoints, contracts, and tests succeeded." -ForegroundColor Cyan
+    Write-Host "===================================================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "To activate this virtual environment and run Janus in PowerShell:" -ForegroundColor White
+    Write-Host ""
+    Write-Host "  .smoke_venv\Scripts\Activate.ps1" -ForegroundColor Yellow
+    Write-Host "  `$env:JANUS_DEMO_MODE = '1'" -ForegroundColor Yellow
+    Write-Host "  python -m janus.server" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Then open simulator/index.html in your browser." -ForegroundColor White
     Write-Host "===================================================================" -ForegroundColor Cyan
 }
 finally {

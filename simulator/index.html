@@ -1095,7 +1095,7 @@
 
     <div class="settings-group">
       <span class="settings-label">Bearer Token:</span>
-      <input type="text" class="settings-input settings-input-token" id="setting-token" value="janus-demo-token-alexa-plus-2026" title="Sent as 'Authorization: Bearer <token>' in every MCP request" />
+      <input type="text" class="settings-input settings-input-token" id="setting-token" value="janus-demo-senior-margaret" title="Sent as 'Authorization: Bearer <token>' in every MCP request" />
 
       <span class="settings-label">Endpoint:</span>
       <input type="text" class="settings-input" id="setting-endpoint" value="http://127.0.0.1:8000/mcp" style="width: 175px;" />
@@ -1204,17 +1204,23 @@
           <span>🚨 Try to Break It (Server-Side Refusal Proofs for Demo Video)</span>
         </div>
         <div class="break-buttons">
+          <button type="button" class="break-btn" onclick="testBreakInvalidToken()" title="Dispatches request with invalid token to prove HTTP 401 Unauthorized refusal">
+            1. Invalid Token (HTTP 401)
+          </button>
+          <button type="button" class="break-btn" onclick="testBreakWrongSenior()" title="Senior Margaret attempts to access Arthur's record to prove FORBIDDEN refusal">
+            2. Unauthorized Senior (FORBIDDEN)
+          </button>
+          <button type="button" class="break-btn" onclick="testBreakSeniorHandoff()" title="Senior Margaret attempts caregiver shift handoff to prove role-based FORBIDDEN refusal">
+            3. Senior Handoff (FORBIDDEN)
+          </button>
           <button type="button" class="break-btn" onclick="testBreakConfirmNoPreview()" title="Dispatches confirm=true without a pending proposal to prove MISSING_TRANSACTION_ID refusal">
-            1. Confirm With No Preview
+            4. Confirm With No Preview
           </button>
           <button type="button" class="break-btn" onclick="testBreakExpiredTx()" title="Dispatches confirm=true with non-existent or expired transaction ID">
-            2. Expired / Invalid TX ID
-          </button>
-          <button type="button" class="break-btn" onclick="testBreakWrongSenior()" title="Queries summary for unknown senior ID">
-            3. Unknown Senior ID
+            5. Expired / Invalid TX ID
           </button>
           <button type="button" class="break-btn" onclick="testBreakClinicalViolation()" title="Attempts clinical chemotherapy prescription logging to verify non-clinical rejection">
-            4. Clinical Scope Violation
+            6. Clinical Scope Violation
           </button>
         </div>
       </section>
@@ -1342,7 +1348,7 @@
         case 'departing': return document.getElementById('setting-departing').value.trim() || 'David';
         case 'incoming': return document.getElementById('setting-incoming').value.trim() || 'Sarah';
         case 'endpoint': return document.getElementById('setting-endpoint').value.trim() || 'http://127.0.0.1:8000/mcp';
-        case 'token': return document.getElementById('setting-token').value.trim() || 'janus-demo-token-alexa-plus-2026';
+        case 'token': return document.getElementById('setting-token').value.trim() || 'janus-demo-senior-margaret';
         default: return '';
       }
     }
@@ -1592,7 +1598,7 @@
     // =========================================================================
     async function callMCPTool(toolName, toolArgs, options = {}) {
       const endpoint = getSetting('endpoint');
-      const token = getSetting('token');
+      const token = options.customToken !== undefined ? options.customToken : getSetting('token');
 
       const payload = {
         jsonrpc: '2.0',
@@ -1614,7 +1620,7 @@
           'Content-Type': 'application/json',
           'MCP-Protocol-Version': '2025-11-25'
         };
-        if (token) {
+        if (!options.noAuth && token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
@@ -1626,6 +1632,32 @@
 
         const elapsedMs = Math.round(performance.now() - startTime);
         document.getElementById('hud-http-ms').textContent = `${elapsedMs} ms`;
+
+        // Handle HTTP 401 Unauthorized from Starlette AuthMiddleware
+        if (response.status === 401) {
+          document.getElementById('hud-server-pill').className = 'hud-chip';
+          document.getElementById('hud-server-pill').style.borderColor = 'var(--accent-rose)';
+          document.getElementById('hud-server-pill').style.color = 'var(--accent-rose)';
+          document.getElementById('hud-server-text').textContent = 'HTTP 401 Unauthorized';
+
+          let errDetail = 'Unauthorized: Missing or invalid Bearer token';
+          try {
+            const errJson = await response.json();
+            errDetail = errJson.detail || errDetail;
+            logDebug(payload, errJson, elapsedMs, headers);
+          } catch(e) {
+            logDebug(payload, { status: 401, error: errDetail }, elapsedMs, headers);
+          }
+
+          if (!options.silent) {
+            renderRefusalCard('HTTP 401 UNAUTHORIZED', errDetail);
+            setAlexaSpeaking(false, `Authentication refused (HTTP 401): ${errDetail}`);
+          }
+          const errRes = { status: 'error', error_code: '401_UNAUTHORIZED', message: errDetail, database_writes: 0 };
+          if (options.onSuccess) options.onSuccess(errRes);
+          return errRes;
+        }
+
         document.getElementById('hud-server-pill').className = 'hud-chip hud-status-online';
         document.getElementById('hud-server-text').textContent = 'Server: Online';
 
@@ -1637,6 +1669,18 @@
         }
 
         const result = data.result?.structuredContent?.result || data.result?.structuredContent || data.result;
+
+        // Check for structured error (e.g. FORBIDDEN, MISSING_TRANSACTION_ID, etc.)
+        if (result && (result.status === 'error' || result.error_code === 'FORBIDDEN')) {
+          if (!options.silent) {
+            renderRefusalCard(result.error_code || 'FORBIDDEN', result.message || 'Access forbidden.');
+            setAlexaSpeaking(false, `Server refusal (${result.error_code || 'FORBIDDEN'}): ${result.message || 'Permission denied.'}`);
+          }
+          if (options.onSuccess) {
+            options.onSuccess(result);
+          }
+          return result;
+        }
 
         if (options.onSuccess) {
           options.onSuccess(result);
@@ -1954,9 +1998,14 @@
     // =========================================================================
     async function pollCaregiverSummary(isImmediate = false) {
       const seniorId = getSetting('senior_id');
+      let token = getSetting('token');
+      // For remote caregiver dashboard sync, use caregiver Sarah if default senior token is active
+      if (token === 'janus-demo-senior-margaret') {
+        token = 'janus-demo-caregiver-sarah';
+      }
 
-      const data = await callMCPTool('get_caregiver_summary', { senior_id: seniorId }, { silent: true });
-      if (!data) return;
+      const data = await callMCPTool('get_caregiver_summary', { senior_id: seniorId }, { silent: true, customToken: token });
+      if (!data || data.status === 'error') return;
 
       renderCaregiverDashboard(data, isImmediate);
     }
@@ -2087,6 +2136,40 @@
     // =========================================================================
     // "TRY TO BREAK IT" DEMO VIDEO INVARIANT TESTS
     // =========================================================================
+    async function testBreakInvalidToken() {
+      setAlexaSpeaking(true, "Testing invariant: sending request with invalid token to prove HTTP 401...");
+      await callMCPTool('log_daily_routine', {
+        senior_id: 'margaret_01',
+        category: 'hydration',
+        details: 'Drank a glass of water',
+        logged_by: 'senior_voice'
+      }, { customToken: 'garbage-invalid-token-xyz' });
+    }
+
+    async function testBreakWrongSenior() {
+      setAlexaSpeaking(true, "Testing invariant: Margaret accessing Arthur's record to prove FORBIDDEN...");
+      await callMCPTool('log_daily_routine', {
+        senior_id: 'arthur_02',
+        category: 'hydration',
+        details: 'Drank water',
+        logged_by: 'senior_voice'
+      });
+    }
+
+    async function testBreakSeniorHandoff() {
+      setAlexaSpeaking(true, "Testing invariant: Senior attempting caregiver shift handoff to prove role FORBIDDEN...");
+      await callMCPTool('verify_routine_state', {
+        senior_id: 'margaret_01',
+        action_type: 'shift_handoff',
+        payload: {
+          departing_caregiver: 'David',
+          incoming_caregiver: 'Sarah',
+          handoff_notes: 'Shift completed'
+        },
+        confirm: false
+      });
+    }
+
     async function testBreakConfirmNoPreview() {
       // Intentionally dispatch confirm=true without a valid transaction_id
       setAlexaSpeaking(true, "Testing invariant: confirm with no preview...");
@@ -2112,17 +2195,6 @@
       }
     }
 
-    async function testBreakWrongSenior() {
-      setAlexaSpeaking(true, "Testing invariant: unknown senior query...");
-      const res = await callMCPTool('get_caregiver_summary', {
-        senior_id: "unknown_senior_999"
-      });
-      if (res) {
-        renderSummaryOnEchoShow(res);
-        setAlexaSpeaking(false, "Server handled unknown senior gracefully with zero events.");
-      }
-    }
-
     async function testBreakClinicalViolation() {
       setAlexaSpeaking(true, "Testing invariant: clinical chemotherapy prescription...");
       const seniorId = getSetting('senior_id');
@@ -2131,8 +2203,8 @@
         category: "chemotherapy_prescription",
         details: "Prescribe 50mg dose titration"
       });
-      if (res && res.error) {
-        renderRefusalCard('INVALID_CATEGORY', res.error.message || 'Janus strictly rejects clinical chemotherapy.');
+      if (res && (res.error || res.error_code === 'INVALID_CATEGORY')) {
+        renderRefusalCard('INVALID_CATEGORY', res.message || res.error?.message || 'Janus strictly rejects clinical chemotherapy.');
       }
     }
 

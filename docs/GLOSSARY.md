@@ -27,6 +27,6 @@ A lightweight browser-based web application (`simulator/index.html`) running HTM
 
 * **Family Caregiver**: Off-site relatives or adult children (e.g., David, Sarah) who monitor daily routine timelines and review handoff summaries on smart displays or mobile devices.
 * **Visiting Caregiver**: An in-person family member or home helper present on-site executing shift check-ins, routine verification, and handoff closures.
-* **Non-Clinical Routine**: Daily lifestyle and wellness actions (hydration, meals, vitamins, mobility, fresh air walks, mood check-ins) explicitly bounded away from medical diagnosis, clinical triage, or prescription changes.
+* **Non-Clinical Routine**: Daily lifestyle and wellness actions conforming strictly to the five supported categories (`meal`, `hydration`, `vitamins`, `activity`, `wellness`) explicitly bounded away from medical diagnosis, clinical triage, or prescription changes.
 * **Echo Show Visual Card**: A glanceable visual UI payload returned within tool results designed for arm's-length viewing on 8-inch and 15-inch smart display viewports.
 * **Read-Only Proposal Preview**: The structured response emitted by a confirmation-gated write tool when `confirm=False`, summarizing proposed mutations, affected records, and a human confirmation prompt.

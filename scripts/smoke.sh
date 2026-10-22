@@ -54,6 +54,7 @@ HOST="${JANUS_HOST:-127.0.0.1}"
 export JANUS_PORT="$PORT"
 export JANUS_HOST="$HOST"
 export JANUS_LOG_LEVEL="warning"
+export JANUS_DEMO_MODE="1"
 
 echo "[5/6] Starting Janus server in background on http://$HOST:$PORT..."
 "$VENV_BIN/python" -m janus.server &
@@ -99,7 +100,9 @@ fi
 echo "-> Probing POST http://$HOST:$PORT/mcp (tools/list)"
 TOOLS_RESP=$(curl -sf -X POST "http://$HOST:$PORT/mcp" \
     -H "Content-Type: application/json" \
+    -H "Accept: application/json, text/event-stream" \
     -H "MCP-Protocol-Version: 2025-11-25" \
+    -H "Authorization: Bearer janus-demo-caregiver-sarah" \
     -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}')
 
 echo "   Verifying tool registrations in response..."
@@ -114,4 +117,17 @@ done
 echo ""
 echo "==================================================================="
 echo "SMOKE TEST PASSED! All endpoints, contracts, and tests succeeded."
+echo "==================================================================="
+echo ""
+echo "To activate this virtual environment and run Janus:"
+echo ""
+echo "  # On Linux / macOS:"
+echo "  source .smoke_venv/bin/activate"
+echo "  # On Windows (Git Bash):"
+echo "  source .smoke_venv/Scripts/activate"
+echo ""
+echo "  export JANUS_DEMO_MODE=1"
+echo "  python -m janus.server"
+echo ""
+echo "Then open simulator/index.html in your browser."
 echo "==================================================================="

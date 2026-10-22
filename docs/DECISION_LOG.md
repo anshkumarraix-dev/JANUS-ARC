@@ -55,3 +55,33 @@ This log records significant architectural, technical, and design decisions made
   - **Safety & Auditability**: Completely eliminates unintended database mutations caused by ambient voice triggers.
   - **Voice UX Alignment**: Mirrors Alexa's natural conversational confirmation pattern: *"I found 1 uncompleted routine item. Do you confirm handing off to Sarah?"* -> *"Yes, confirm."*
   - **Testability**: Automated tests can cleanly assert that `confirm=False` leaves the database row count unchanged.
+
+> [!NOTE]
+> **Superseded by implementation**:
+> The initial proposal above envisioned separate arguments per tool. During implementation, the confirmation gate was unified across all write operations (`routine_log` and `shift_handoff`) using a single transactional proposal ledger (`proposals` table) with cryptographic transaction IDs (`tx_...`), idempotent replay protection, and strict 5-minute TTL expiration (`PROPOSAL_TTL_SECONDS = 300`).
+>
+> **Real Signature (`src/janus/server.py`)**:
+> ```python
+> @mcp.tool(
+>     name="verify_routine_state",
+>     annotations=ToolAnnotations(
+>         read_only_hint=False,
+>         destructive_hint=False,
+>         idempotent_hint=True,
+>     ),
+> )
+> async def verify_routine_state(
+>     confirm: Annotated[bool, Field(description="Confirmation flag: False for proposal preview; True for atomic commit")] = False,
+>     transaction_id: Annotated[Optional[str], Field(description="Transaction ID of a live pending proposal ('tx_...'). Required when confirm=True")] = None,
+>     senior_id: Annotated[Optional[str], Field(description="Target senior identifier when creating a new proposal")] = None,
+>     action_type: Annotated[Optional[str], Field(description="Proposal action type ('shift_handoff', 'routine_log')")] = "shift_handoff",
+>     payload: Annotated[Optional[Dict[str, Any]], Field(description="Action payload when creating a new handoff proposal. Ignored on commit")] = None,
+> ) -> Union[ProposalPreviewResponse, CommittedStateResponse, AlreadyCommittedResponse, ProposalErrorResponse]:
+> ```
+>
+> **Real Return Types**:
+> - `ProposalPreviewResponse`: Returned when `confirm=False` (or previewing a pending transaction). Contains `status="PROPOSAL_PREVIEW"`, `database_writes=0`, transaction ID, pending details, and APL/display visual cards.
+> - `CommittedStateResponse`: Returned on first successful commit (`confirm=True`). Contains `status="COMMITTED"`, `database_writes=1`, confirmed entity ID, and SHA-256 tamper-evident audit record.
+> - `AlreadyCommittedResponse`: Returned on replay of an already-committed transaction. Contains `status="ALREADY_COMMITTED"`, `database_writes=0`, matching original result ID with idempotent safety.
+> - `ProposalErrorResponse`: Returned on invalid transitions or expiration. Contains `status="error"`, `database_writes=0`, and machine-readable `ErrorCode` (`MISSING_TRANSACTION_ID`, `PROPOSAL_NOT_FOUND`, `PROPOSAL_EXPIRED`, `FORBIDDEN`, etc.).
+

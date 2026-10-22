@@ -45,7 +45,7 @@ flowchart LR
 * **Strict Pydantic v2 Contract Schemas**: All 4 tools publish compliant `inputSchema` and `outputSchema` definitions in `tools/list` with zero loose dictionaries. Responses conform to published schemas via `jsonschema` validation.
 * **Standard MCP Tool Annotations**: Every tool declares behavioral hints (`readOnlyHint`, `idempotentHint`, `destructiveHint`) assisting LLM hosts in reliable tool selection.
 * **Two-Step Confirmation Gate**: All write-heavy tools require `confirm: bool = False` initially. The server returns a read-only proposal preview (`PROPOSAL_PREVIEW`) with zero database writes. Commits require explicit user confirmation (`confirm=True`).
-* **Cryptographic Tamper-Evident Audit Trail**: Every committed transaction is hashed with SHA-256 and chained to previous records, verifiable via `janus-audit verify`.
+* **Cryptographic Tamper-Evident Audit Trail**: Every committed transaction is hashed with SHA-256 and chained to previous records, verifiable via `python -m janus.audit verify`.
 * **Non-Clinical Safety Boundary**: Exclusively scoped to daily lifestyle, wellness, hydration, and caregiver handoffs. Rejects clinical diagnosis, vitals triage, or prescription drug administration.
 * **Zero Paid APIs & Zero External Runtime Calls**: Runs 100% locally with open-source Python libraries, local SQLite, and self-contained system fonts.
 
@@ -96,57 +96,94 @@ src/janus/auth.py       49      0     20      0   100%
 src/janus/gate.py       33      0     10      1    98%   47->53
 ----------------------------------------------------------------
 TOTAL                  124      2     44      3    97%
-============================= 58 passed in 19.81s =============================
+============================= 63 passed =============================
 ```
 
 ---
 
-## ⚡ 3-Command Quickstart
+## ⚡ Quickstart
 
-Reviewers can verify and run Janus end-to-end in 3 commands:
+### Step 1: Clone, Virtual Environment & Installation
 
 ```bash
 # 1. Clone repository
 git clone https://github.com/anshkumarraix-dev/JANUS-ARC.git
 cd JANUS-ARC
 
-# 2. Run the automated smoke test (creates clean venv, installs, runs pytest, probes /health & /mcp)
-bash scripts/smoke.sh
-# (or on Windows PowerShell: powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1)
+# 2. Create virtual environment
+python -m venv .venv
 
-# 3. Launch server & open simulator
-janus-server
-# In browser: open simulator/index.html
+# 3. Activate virtual environment
+# On Linux / macOS / Git Bash:
+source .venv/bin/activate
+# On Windows PowerShell:
+.venv\Scripts\Activate.ps1
+
+# 4. Install package and dependencies in editable mode
+pip install -e ".[dev]"
 ```
 
-### Manual Installation & Running
+### Step 2: Automated Reviewer Smoke Test (Optional)
+
+Run the full end-to-end automated verification script:
+```bash
+# On Linux / macOS:
+bash scripts/smoke.sh
+
+# On Windows PowerShell:
+powershell -ExecutionPolicy Bypass -File scripts/smoke.ps1
+```
+
+### Step 3: Run the Server in Demo Mode
+
+> [!IMPORTANT]
+> **Demo Tokens Require `JANUS_DEMO_MODE=1`**:
+> To prevent accidental development bypass in production, the server requires `JANUS_DEMO_MODE=1` to accept the 3 pre-configured demo tokens. When `JANUS_DEMO_MODE` is unset or `0`, all demo tokens are rejected with HTTP 401 Unauthorized.
+
+Set the demo environment variable and start the server:
 
 ```bash
-# 1. Install dependencies in editable mode
-pip install -e ".[dev]"
+# On Linux / macOS / Git Bash:
+export JANUS_DEMO_MODE=1
+python -m janus.server
 
-# 2. Run test suite
-pytest -q
-
-# 3. Start Janus FastMCP server
-janus-server
+# On Windows PowerShell:
+$env:JANUS_DEMO_MODE = "1"
+python -m janus.server
 ```
 
-The server binds to `http://127.0.0.1:8000/mcp` with health checks at `http://127.0.0.1:8000/health`.
+The FastMCP server binds to `http://127.0.0.1:8000/mcp` with health checks at `http://127.0.0.1:8000/health`.
 
-### Launching the Dual-Screen Simulator
+#### Demo Bearer Tokens & Access Scopes
+
+| Demo Token | Role | Actor | Accessible Senior IDs |
+|---|---|---|---|
+| `janus-demo-senior-margaret` | `senior` | `senior_voice` | `margaret_01` |
+| `janus-demo-caregiver-sarah` | `caregiver` | `caregiver_sarah` | `margaret_01` |
+| `janus-demo-caregiver-david` | `caregiver` | `caregiver_david` | `arthur_02` |
+
+### Step 4: Open the Dual-Screen Simulator
+
 Open `simulator/index.html` directly in any web browser (no local web server required):
 * **Left Screen**: Senior Echo Show 8 viewport (768×480) with high contrast 24pt+ text, speech recognition/synthesis, and rendered APL cards.
 * **Right Screen**: Off-site Family Caregiver Dashboard with live 3-second auto-sync polling loop and green highlight pulse on confirmed events.
 * **Refusal Test Row**: Click interactive buttons demonstrating invariant refusals (unconfirmed commit refusal, expired proposal ID, unknown senior ID, and clinical scope violation rejection).
+
+### Audit Trail Verification
+
+Verify the cryptographic SHA-256 tamper-evident log integrity at any time:
+```bash
+python -m janus.audit verify
+```
 
 ---
 
 ## ⚠️ Known Limitations
 
 1. **No Physical Alexa Device Testing**: All visual card rendering is designed and tested against the official Alexa Presentation Language (APL 2024.3) document specification and validated in the browser simulator. Physical deployment to an Echo Show 8 device has not been performed or verified.
-2. **Demo-Mode Authentication Tokens**: Bearer token authorization validates static development tokens (`janus-demo-token-alexa-plus-2026`) and `janus-demo-*` prefixes with role resolution (`caregiver`, `senior`, `admin`). Production OAuth 2.0 / Login with Amazon (LWA) token exchange flows are not implemented.
+2. **Demo-Mode Authentication Tokens**: Bearer token authorization validates static development tokens strictly when `JANUS_DEMO_MODE=1` is explicitly set. The three demo tokens (`janus-demo-senior-margaret`, `janus-demo-caregiver-sarah`, `janus-demo-caregiver-david`) enforce strict per-senior access boundaries (`margaret_01` vs `arthur_02`). The previous `janus-demo-*` prefix wildcard has been removed. In production (`JANUS_DEMO_MODE=0`), authorization requires an administrator token configured via the `JANUS_ADMIN_TOKEN` environment variable or explicit customer tokens. Production OAuth 2.0 / Login with Amazon (LWA) token exchange flows are not implemented.
 3. **Single-Node Local SQLite**: Persistence relies on a single-node SQLite database (`data/janus.db`) configured in WAL mode with serialized write concurrency. It is engineered for local edge execution and does not support multi-region clustering or horizontal distributed writes.
+4. **Non-Emergency & Non-Clinical Scope**: Janus is not an emergency or medical system and does not detect emergencies. It strictly tracks non-clinical lifestyle routines and caregiver shift handoffs. Urgent symptoms or medical emergencies must be directed to emergency medical services.
 
 ---
 
@@ -216,7 +253,7 @@ Open `simulator/index.html` directly in any web browser (no local web server req
 - [x] 4 Core non-clinical MCP tools implemented with two-step confirmation gate
 - [x] Dual split-screen Alexa+ Web Simulator with Echo Show 8 viewport and remote Caregiver Dashboard
 - [x] Real-network latency benchmark proving sub-50ms p95 latency (zero TestClient)
-- [x] Pytest suite with 58 passing tests and 97% gate/auth/audit coverage
+- [x] Pytest suite with 63 passing tests and 97% gate/auth/audit coverage
 - [x] 3-command reviewer quickstart via `scripts/smoke.sh` and `scripts/smoke.ps1`
 - [x] GitHub Actions CI workflow on Python 3.12 (`.github/workflows/ci.yml`)
 - [x] Mandatory [`FRICTION_LOG.md`](FRICTION_LOG.md) (+10% judging bonus)

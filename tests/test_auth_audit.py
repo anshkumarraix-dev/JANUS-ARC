@@ -51,18 +51,56 @@ def test_extract_bearer_token():
     assert extract_bearer_token(None) is None
 
 
-def test_verify_token_valid():
-    is_valid, claims, reason = verify_token(DEMO_TOKEN)
+def test_verify_token_valid(monkeypatch):
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    # 1. Senior Margaret
+    is_valid, claims, reason = verify_token("janus-demo-senior-margaret")
+    assert is_valid is True
+    assert claims["actor"] == "senior_margaret"
+    assert claims["role"] == "senior"
+    assert claims["allowed_seniors"] == {"margaret_01"}
+
+    # 2. Caregiver Sarah
+    is_valid, claims, _ = verify_token("janus-demo-caregiver-sarah")
+    assert is_valid is True
+    assert claims["actor"] == "caregiver_sarah"
+    assert claims["role"] == "caregiver"
+    assert claims["allowed_seniors"] == {"margaret_01"}
+
+    # 3. Caregiver David
+    is_valid, claims, _ = verify_token("janus-demo-caregiver-david")
     assert is_valid is True
     assert claims["actor"] == "caregiver_david"
     assert claims["role"] == "caregiver"
-    assert "margaret_01" in claims["allowed_seniors"]
+    assert claims["allowed_seniors"] == {"arthur_02"}
 
 
-def test_verify_token_demo_prefix():
+def test_verify_token_demo_mode_disabled(monkeypatch):
+    # When JANUS_DEMO_MODE is not 1, demo tokens are rejected
+    monkeypatch.setenv("JANUS_DEMO_MODE", "0")
+    is_valid, claims, reason = verify_token("janus-demo-senior-margaret")
+    assert is_valid is False
+    assert claims is None
+
+
+def test_verify_token_prefix_fallback_removed(monkeypatch):
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    # Unknown token with janus-demo- prefix is strictly rejected
     is_valid, claims, _ = verify_token("janus-demo-custom-key")
+    assert is_valid is False
+    assert claims is None
+
+    is_valid, claims, _ = verify_token("janus-demo-x")
+    assert is_valid is False
+    assert claims is None
+
+
+def test_verify_token_admin_env(monkeypatch):
+    monkeypatch.setenv("JANUS_ADMIN_TOKEN", "super-secret-admin-token")
+    is_valid, claims, _ = verify_token("super-secret-admin-token")
     assert is_valid is True
-    assert claims["actor"] == "demo_user"
+    assert claims["actor"] == "admin"
+    assert claims["role"] == "admin"
     assert "*" in claims["allowed_seniors"]
 
 
@@ -76,15 +114,23 @@ def test_verify_token_invalid_and_empty():
     assert claims is None
 
 
-def test_check_senior_access():
-    # Empty token permits ambient simulator access
-    assert check_senior_access(None, "margaret_01") is True
+def test_check_senior_access(monkeypatch):
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    from janus.auth import set_current_identity, current_identity
 
-    # Valid demo token permits margaret_01 and wildcard
-    assert check_senior_access(DEMO_TOKEN, "margaret_01") is True
-    assert check_senior_access(DEMO_TOKEN, "any_other_senior") is True
+    # Empty token and empty context rejects
+    current_identity.set(None)
+    assert check_senior_access(None, "margaret_01") is False
 
-    # Token with restricted list
+    # Senior Margaret access checks
+    assert check_senior_access("janus-demo-senior-margaret", "margaret_01") is True
+    assert check_senior_access("janus-demo-senior-margaret", "arthur_02") is False
+
+    # Caregiver David access checks
+    assert check_senior_access("janus-demo-caregiver-david", "arthur_02") is True
+    assert check_senior_access("janus-demo-caregiver-david", "margaret_01") is False
+
+    # Custom registry check
     custom_registry = {
         "restricted-tok": {
             "actor": "sarah",
@@ -96,8 +142,54 @@ def test_check_senior_access():
     assert check_senior_access("restricted-tok", "unauthorized_senior", token_registry=custom_registry) is False
 
 
-def test_get_actor_from_header():
-    assert get_actor_from_header(f"Bearer {DEMO_TOKEN}") == "caregiver_david"
+def test_check_role_access(monkeypatch):
+    from janus.auth import check_role_access
+
+    senior_identity = {
+        "actor": "senior_margaret",
+        "role": "senior",
+        "allowed_seniors": {"margaret_01"},
+    }
+    caregiver_identity = {
+        "actor": "caregiver_sarah",
+        "role": "caregiver",
+        "allowed_seniors": {"margaret_01"},
+    }
+
+    # Senior: logs and confirms only for themselves
+    ok, _ = check_role_access(senior_identity, "log_routine", "margaret_01")
+    assert ok is True
+    ok, _ = check_role_access(senior_identity, "confirm_routine", "margaret_01")
+    assert ok is True
+    # Senior cannot log for other seniors
+    ok, _ = check_role_access(senior_identity, "log_routine", "arthur_02")
+    assert ok is False
+    # Senior cannot propose shift handoff
+    ok, _ = check_role_access(senior_identity, "propose_handoff", "margaret_01")
+    assert ok is False
+    # Senior cannot confirm shift handoff
+    ok, _ = check_role_access(senior_identity, "confirm_handoff", "margaret_01")
+    assert ok is False
+    # Senior cannot read caregiver summary
+    ok, _ = check_role_access(senior_identity, "read_summary", "margaret_01")
+    assert ok is False
+
+    # Caregiver: can propose handoff, confirm handoff, read summary for assigned senior
+    ok, _ = check_role_access(caregiver_identity, "read_summary", "margaret_01")
+    assert ok is True
+    ok, _ = check_role_access(caregiver_identity, "propose_handoff", "margaret_01")
+    assert ok is True
+    ok, _ = check_role_access(caregiver_identity, "confirm_handoff", "margaret_01")
+    assert ok is True
+    # Caregiver cannot access unassigned senior
+    ok, _ = check_role_access(caregiver_identity, "read_summary", "arthur_02")
+    assert ok is False
+
+
+def test_get_actor_from_header(monkeypatch):
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    assert get_actor_from_header("Bearer janus-demo-senior-margaret") == "senior_margaret"
+    assert get_actor_from_header("Bearer janus-demo-caregiver-sarah") == "caregiver_sarah"
     assert get_actor_from_header("Bearer invalid-tok", default_actor="senior_voice") == "senior_voice"
     assert get_actor_from_header(None, default_actor="senior_voice") == "senior_voice"
 
@@ -107,6 +199,7 @@ def test_auth_error_exception():
     assert err.code == ErrorCode.FORBIDDEN
     assert "Unauthorized senior access" in str(err)
     assert Role.CAREGIVER == "caregiver"
+
 
 
 # ---------------------------------------------------------------------------

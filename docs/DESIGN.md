@@ -41,13 +41,13 @@ flowchart TD
 All persistence is managed locally with zero third-party cloud dependencies via SQLite (`src/janus/storage.py`), guaranteeing $< 10\text{ ms}$ local query execution.
 
 ### Table: `routine_logs`
-Records non-clinical daily living events (hydration, meals, vitamins, mobility, walks).
+Records non-clinical daily living events (meal, hydration, vitamins, activity, wellness).
 
 | Column | Type | Description |
 |---|---|---|
 | `id` | `INTEGER PRIMARY KEY AUTOINCREMENT` | Unique event identifier |
 | `senior_id` | `TEXT NOT NULL` | Target senior profile identifier (e.g., `margaret_01`) |
-| `routine_type` | `TEXT NOT NULL` | Enum: `hydration`, `meal`, `vitamins`, `mobility`, `walk`, `wellness` |
+| `routine_type` | `TEXT NOT NULL` | Enum: `meal`, `hydration`, `vitamins`, `activity`, `wellness` |
 | `value` | `TEXT` | Quantity or description (e.g., `500ml water`, `Oatmeal & fruit`) |
 | `logged_by` | `TEXT NOT NULL` | Actor identifier (`senior_voice`, `caregiver_sarah`, `caregiver_david`) |
 | `timestamp` | `DATETIME DEFAULT CURRENT_TIMESTAMP` | UTC ISO8601 timestamp |
@@ -63,7 +63,7 @@ Maintains an append-only, auditable ledger of shift handovers between family car
 | `departing_caregiver` | `TEXT NOT NULL` | Caregiver ending shift |
 | `incoming_caregiver` | `TEXT NOT NULL` | Caregiver assuming shift |
 | `routine_snapshot` | `TEXT NOT NULL` | JSON snapshot of routine status at handoff time |
-| `handoff_notes` | `TEXT NOT NULL` | Crucial non-clinical notes (e.g., *Margaret walked 20 mins, took afternoon water*) |
+| `handoff_notes` | `TEXT NOT NULL` | Crucial non-clinical notes (e.g., *Margaret completed 20 mins activity, took afternoon water*) |
 | `confirmed` | `BOOLEAN NOT NULL DEFAULT 1` | Confirmed status indicator |
 | `created_at` | `DATETIME DEFAULT CURRENT_TIMESTAMP` | Timestamp of confirmed handoff |
 
@@ -72,6 +72,7 @@ Maintains an append-only, auditable ledger of shift handovers between family car
 2. **Step 1 (Preview Proposal)**: Host invokes `verify_routine_state(senior_id="margaret_01", incoming="Sarah", confirm=False)`.
    - Tool inspects SQLite database for today's logs.
    - Generates a proposal preview summarizing pending routine items.
+   - Pending proposals are assigned a unique transaction ID valid for 5 minutes (`PROPOSAL_TTL_SECONDS = 300`).
    - Database is untouched (`writes = 0`).
    - Alexa speaks: *"Margaret had breakfast and vitamins, but has only had 300ml of water. Do you confirm handing off to Sarah?"*
 3. **Step 2 (Host Voice Consent)**: Caregiver responds: *"Yes, confirm."*
@@ -113,9 +114,9 @@ Janus uses stable, machine-readable error codes mapped to human-safe messages vi
 
 | Error Code | HTTP / Response Context | Description |
 |---|---|---|
-| `INVALID_CATEGORY` | Tool validation | Requested category not in allowed non-clinical enum (`hydration`, `meal`, `vitamins`, `mobility`, `walk`, `wellness`) |
+| `INVALID_CATEGORY` | Tool validation | Requested category not in allowed non-clinical enum (`meal`, `hydration`, `vitamins`, `activity`, `wellness`) |
 | `PROPOSAL_NOT_FOUND` | `verify_routine_state` | Transaction ID does not exist in `proposals` table |
-| `PROPOSAL_EXPIRED` | `verify_routine_state` | Proposal passed 15-minute validity TTL |
+| `PROPOSAL_EXPIRED` | `verify_routine_state` | Proposal passed 5-minute validity TTL |
 | `PROPOSAL_CANCELLED` | `verify_routine_state` | User actively cancelled pending proposal |
 | `MISSING_TRANSACTION_ID` | `verify_routine_state` | `confirm=True` called without specifying `transaction_id` |
 | `INVALID_ARGUMENTS` | Tool invocation | Missing or malformed parameters |
@@ -132,14 +133,14 @@ Janus operates under strict non-clinical safety boundaries designed to prevent m
    * Hydration tracking (glasses, ounces, water intake reminders).
    * Meal tracking (breakfast, lunch, dinner, snacks).
    * Routine daily vitamin logging (confirming scheduled vitamins were taken).
-   * Physical mobility and gentle exercise (porch walks, chair stretches, steps).
+   * Physical activity and wellness routines (chair stretches, light movement, steps).
    * Caregiver check-in logs and shift changeover notes.
 2. **Prohibited Medical Features**:
    * 🚫 No prescription drug dosage changes, titrations, or scheduling.
    * 🚫 No vital signs triage (blood pressure, heart rate, blood glucose clinical evaluation).
    * 🚫 No diagnostic interpretations or clinical recommendations.
-3. **Emergency Escalation Clause**:
-   * If any utterance indicates acute pain, chest discomfort, falls, or medical emergency, the tool returns an immediate safety alert: *"Emergency detected: Please dial 911 or your local emergency number immediately."*
+3. **Known Limitations**:
+   * Janus is not an emergency or medical system and does not detect emergencies.
 
 ---
 

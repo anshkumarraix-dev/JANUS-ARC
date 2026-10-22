@@ -13,6 +13,7 @@ import os
 from typing import Annotated, Any, Dict, Optional, Union
 
 from starlette.applications import Starlette
+from starlette.datastructures import Headers
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer as FastMCP
@@ -20,6 +21,15 @@ from mcp.types import ToolAnnotations
 from pydantic import Field
 
 from janus import storage
+from janus.auth import (
+    current_identity,
+    extract_bearer_token,
+    verify_token,
+    check_senior_access,
+    check_role_access,
+    get_current_identity,
+    Role,
+)
 from janus.errors import (
     ErrorCode,
     InvalidCategoryError,
@@ -54,6 +64,62 @@ logging.basicConfig(
 )
 logger = logging.getLogger("janus.server")
 
+
+class AuthMiddleware:
+    """Starlette middleware enforcing Bearer token authentication on all endpoints except /health and OPTIONS."""
+
+    def __init__(self, app: Any):
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Block the CORS preflight carve-out correctly (OPTIONS must pass)
+        if scope.get("method") == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        # /health stays open
+        path = scope.get("path", "")
+        if path == "/health":
+            await self.app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        auth_header = headers.get("authorization")
+        token = extract_bearer_token(auth_header)
+        is_valid, claims, reason = verify_token(token)
+
+        if not is_valid or not claims:
+            # Missing or invalid token -> HTTP 401 JSON
+            response = JSONResponse(
+                {
+                    "error": "UNAUTHORIZED",
+                    "message": reason,
+                    "database_writes": 0,
+                    "status_code": 401,
+                },
+                status_code=401,
+            )
+            await response(scope, receive, send)
+            return
+
+        identity = {
+            "actor": claims.get("actor", "anonymous"),
+            "role": claims.get("role", "caregiver"),
+            "allowed_seniors": set(claims.get("allowed_seniors", set())),
+            "token": token,
+        }
+
+        tok = current_identity.set(identity)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            current_identity.reset(tok)
+
+
 # Initialize FastMCP Server instance
 mcp = FastMCP(
     name="janus",
@@ -80,7 +146,7 @@ async def log_daily_routine(
     routine_type: Annotated[Optional[str], Field(description="Alias for category (backward compatibility)")] = None,
     notes: Annotated[Optional[str], Field(description="Alias for details (backward compatibility)")] = None,
     logged_by: Annotated[Optional[str], Field(description="Actor initiating the log: 'senior_voice', 'caregiver_sarah', etc.")] = "senior_voice",
-) -> RoutineLogProposalResponse:
+) -> Union[RoutineLogProposalResponse, ProposalErrorResponse]:
     """Propose logging a non-clinical elder daily routine event (meals, hydration, vitamins, activity, wellness).
 
     WHEN TO CALL:
@@ -108,13 +174,34 @@ async def log_daily_routine(
         logged_by=logged_by or "senior_voice",
     )
 
+    # Enforce senior access & role check BEFORE any storage call
+    identity = get_current_identity()
+    allowed, reason = check_role_access(identity, "log_routine", req.senior_id)
+    if not allowed:
+        audit_actor = identity.get("actor", "anonymous") if identity else (req.logged_by or "anonymous")
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="log_daily_routine",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=reason,
+            database_writes=0,
+        )
+
     resolved_cat = req.category or req.routine_type
     if not resolved_cat:
         raise InvalidCategoryError("empty")
 
     validated_cat = storage.validate_category(resolved_cat)
     resolved_details = req.details or req.notes or ""
-    actor = req.logged_by or "senior_voice"
+    actor = identity.get("actor", req.logged_by or "senior_voice") if identity else (req.logged_by or "senior_voice")
 
     logger.info("log_daily_routine proposal: senior=%s, cat=%s, actor=%s", req.senior_id, validated_cat, actor)
 
@@ -200,7 +287,7 @@ async def get_caregiver_summary(
     senior_id: Annotated[str, Field(description="Target senior profile identifier (e.g. 'margaret_01')")],
     date: Annotated[Optional[str], Field(description="Target date in 'YYYY-MM-DD' format (defaults to current local date in senior's timezone)")] = None,
     filter_status: Annotated[str, Field(description="Filter slots by status: 'all', 'completed', or 'pending'")] = "all",
-) -> CaregiverSummaryResponse:
+) -> Union[CaregiverSummaryResponse, ProposalErrorResponse]:
     """Retrieve daily routine timeline, slot completion statuses, and visual cards for a senior.
 
     WHEN TO CALL:
@@ -221,6 +308,28 @@ async def get_caregiver_summary(
         date=date,
         filter_status=filter_status,
     )
+
+    # Enforce senior access & role check BEFORE any storage call
+    identity = get_current_identity()
+    allowed, reason = check_role_access(identity, "read_summary", req.senior_id)
+    if not allowed:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="get_caregiver_summary",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=reason,
+            database_writes=0,
+        )
+
     logger.info("get_caregiver_summary: senior=%s, date=%s, filter=%s", req.senior_id, req.date, req.filter_status)
     summary = storage.get_daily_summary(senior_id=req.senior_id, target_date=req.date, filter_status=req.filter_status)
     return CaregiverSummaryResponse(**summary)
@@ -292,6 +401,30 @@ async def verify_routine_state(
 
         act_type = prop["action_type"]
         s_id = prop["senior_id"]
+
+        # Check access before returning proposal preview
+        identity = get_current_identity()
+        check_action = "propose_handoff" if act_type == "shift_handoff" else "log_routine"
+        allowed, reason = check_role_access(identity, check_action, s_id)
+        if not allowed:
+            audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+            audit_role = identity.get("role", "unknown") if identity else "unknown"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=s_id,
+                transaction_id=req.transaction_id,
+                outcome="FORBIDDEN",
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=reason,
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
+
         prop_payload = prop.get("payload", {})
         actor = prop.get("actor", "caregiver")
 
@@ -362,6 +495,29 @@ async def verify_routine_state(
             )
 
         act_type = req.action_type or "shift_handoff"
+
+        # Enforce role & senior access BEFORE any storage call
+        identity = get_current_identity()
+        check_action = "propose_handoff" if act_type == "shift_handoff" else "log_routine"
+        allowed, reason = check_role_access(identity, check_action, req.senior_id)
+        if not allowed:
+            audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+            audit_role = identity.get("role", "unknown") if identity else "unknown"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=req.senior_id,
+                transaction_id=None,
+                outcome="FORBIDDEN",
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=reason,
+                database_writes=0,
+            )
+
         payload_data = req.payload or {}
         summary = storage.get_daily_summary(senior_id=req.senior_id)
         pending_names = [r["name"] for r in summary.get("pending_routines", [])]
@@ -442,6 +598,42 @@ async def verify_routine_state(
             error_code=ErrorCode.MISSING_TRANSACTION_ID,
             message="confirm=True REQUIRES a valid transaction_id of a live pending proposal. No unconfirmed payload accepted on commit.",
             database_writes=0,
+        )
+
+    prop = storage.get_proposal(req.transaction_id)
+    if not prop:
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.PROPOSAL_NOT_FOUND,
+            message=f"Proposal '{req.transaction_id}' does not exist.",
+            database_writes=0,
+            transaction_id=req.transaction_id,
+        )
+
+    act_type = prop["action_type"]
+    s_id = prop["senior_id"]
+
+    # Enforce role & senior access BEFORE storage commit
+    identity = get_current_identity()
+    check_action = "confirm_handoff" if act_type == "shift_handoff" else "confirm_routine"
+    allowed, reason = check_role_access(identity, check_action, s_id)
+    if not allowed:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=s_id,
+            transaction_id=req.transaction_id,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=reason,
+            database_writes=0,
+            transaction_id=req.transaction_id,
         )
 
     commit_res = storage.commit_proposal(transaction_id=req.transaction_id)
@@ -533,7 +725,7 @@ async def flag_missed_routine(
     routine_name: Annotated[Optional[str], Field(description="Optional specific routine name or category to check")] = None,
     scheduled_time: Annotated[Optional[str], Field(description="Optional expected time window string (e.g. '14:00')")] = None,
     urgency_level: Annotated[str, Field(description="Urgency level ('low', 'medium', 'high')")] = "medium",
-) -> MissedRoutineResponse:
+) -> Union[MissedRoutineResponse, ProposalErrorResponse]:
     """Scan scheduled routine windows for overdue items and generate gentle, non-alarm ambient reminders.
 
     WHEN TO CALL:
@@ -556,6 +748,27 @@ async def flag_missed_routine(
         scheduled_time=scheduled_time,
         urgency_level=urgency_level,
     )
+
+    # Enforce senior access & role check BEFORE any storage call
+    identity = get_current_identity()
+    allowed, reason = check_role_access(identity, "flag_missed", req.senior_id)
+    if not allowed:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="flag_missed_routine",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=reason,
+            database_writes=0,
+        )
 
     logger.info(
         "flag_missed_routine: senior=%s, threshold=%s, routine=%s, time=%s, urgency=%s",
@@ -710,6 +923,25 @@ async def flag_missed_routine(
 def get_senior_today_resource(id: str) -> str:
     """Read-only summary resource providing today's non-clinical routine timeline and metrics."""
     logger.info("Reading resource janus://senior/%s/today", id)
+    identity = get_current_identity()
+    allowed, reason = check_role_access(identity, "read_resource", id)
+    if not allowed:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="get_senior_today_resource",
+            senior_id=id,
+            transaction_id=None,
+            outcome="FORBIDDEN",
+        )
+        return json.dumps({
+            "status": "error",
+            "error_code": ErrorCode.FORBIDDEN,
+            "message": reason,
+            "database_writes": 0,
+        })
     summary = storage.get_daily_summary(senior_id=id)
     return json.dumps(summary, indent=2)
 
@@ -718,7 +950,7 @@ def get_senior_today_resource(id: str) -> str:
 # ASGI Application Factory & CORS Setup
 # ---------------------------------------------------------------------------
 def get_app(host: str = "0.0.0.0") -> Starlette:
-    """Construct Starlette app mounting FastMCP v2 Streamable HTTP on /mcp with CORS."""
+    """Construct Starlette app mounting FastMCP v2 Streamable HTTP on /mcp with CORS and Auth."""
     # Ensure database is initialized
     storage.init_db()
 
@@ -729,6 +961,9 @@ def get_app(host: str = "0.0.0.0") -> Starlette:
         stateless_http=True,
         json_response=True,
     )
+
+    # Add AuthMiddleware first so it runs inside CORSMiddleware
+    app.add_middleware(AuthMiddleware)
 
     # Add CORS middleware to support browser simulators and local tools
     app.add_middleware(

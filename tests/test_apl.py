@@ -231,6 +231,10 @@ async def test_tools_return_genuine_apl_and_display_fallback(isolated_db):
 def test_tools_call_over_http_returns_apl_structure(isolated_db):
     """Assert Streamable HTTP /mcp tools/call publishes structuredContent with apl and display objects for all 4 tools."""
     app = get_app(host="127.0.0.1")
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         # 1. log_daily_routine over HTTP
         r_log = client.post(
@@ -248,7 +252,7 @@ def test_tools_call_over_http_returns_apl_structure(isolated_db):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_log.status_code == 200
         sc_log = r_log.json()["result"]["structuredContent"]
@@ -278,7 +282,7 @@ def test_tools_call_over_http_returns_apl_structure(isolated_db):
                     "arguments": {"senior_id": "margaret_01"},
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_sum.status_code == 200
         sc_sum = r_sum.json()["result"]["structuredContent"]
@@ -309,7 +313,7 @@ def test_tools_call_over_http_returns_apl_structure(isolated_db):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_prev.status_code == 200
         sc_prev = r_prev.json()["result"]["structuredContent"]
@@ -334,7 +338,7 @@ def test_tools_call_over_http_returns_apl_structure(isolated_db):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_commit.status_code == 200
         sc_commit = r_commit.json()["result"]["structuredContent"]
@@ -359,7 +363,7 @@ def test_tools_call_over_http_returns_apl_structure(isolated_db):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_missed.status_code == 200
         sc_missed = r_missed.json()["result"]["structuredContent"]

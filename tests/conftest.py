@@ -11,6 +11,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from janus import storage
 
 
+@pytest.fixture(autouse=True)
+def default_test_identity(monkeypatch):
+    """Set default admin identity and demo mode for direct unit tests."""
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    monkeypatch.setenv("JANUS_ADMIN_TOKEN", "janus-test-admin-token")
+    from janus.auth import current_identity, set_current_identity
+    tok = set_current_identity({
+        "actor": "test_admin",
+        "role": "admin",
+        "allowed_seniors": {"*"},
+        "token": "janus-test-admin-token",
+    })
+    yield
+    current_identity.reset(tok)
+
+
 @pytest.fixture
 def isolated_db(monkeypatch):
     """Create an isolated temporary SQLite database for each test."""
@@ -24,3 +40,4 @@ def isolated_db(monkeypatch):
             os.remove(test_db_path)
         except Exception:
             pass
+

@@ -24,6 +24,10 @@ import httpx
 import jsonschema
 import pytest
 
+from janus import storage
+
+_LIVE_SERVER_DB_PATH: Optional[str] = None
+
 
 def get_free_port() -> int:
     """Find and return an available TCP port on localhost."""
@@ -35,15 +39,18 @@ def get_free_port() -> int:
 @pytest.fixture(scope="module")
 def live_mcp_server():
     """Start uvicorn in a real background subprocess on a free port and yield base URL."""
+    global _LIVE_SERVER_DB_PATH
     port = get_free_port()
     temp_dir = tempfile.mkdtemp()
     db_path = os.path.join(temp_dir, "real_network_test.db")
+    _LIVE_SERVER_DB_PATH = db_path
 
     env = os.environ.copy()
     env["JANUS_PORT"] = str(port)
     env["JANUS_HOST"] = "127.0.0.1"
     env["JANUS_DB_PATH"] = db_path
     env["JANUS_LOG_LEVEL"] = "warning"
+    env["JANUS_DEMO_MODE"] = "1"
     # Ensure src directory is in PYTHONPATH for the subprocess
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
     env["PYTHONPATH"] = src_dir + os.pathsep + env.get("PYTHONPATH", "")
@@ -66,7 +73,10 @@ def live_mcp_server():
                 r = client.post(
                     "/mcp",
                     json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
-                    headers={"MCP-Protocol-Version": "2025-11-25"},
+                    headers={
+                        "MCP-Protocol-Version": "2025-11-25",
+                        "Authorization": "Bearer janus-demo-caregiver-sarah",
+                    },
                 )
                 if r.status_code == 200:
                     ready = True
@@ -103,11 +113,15 @@ def live_mcp_server():
 def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
     """Verify each tool publishes an outputSchema and its structuredContent response conforms to it."""
     with httpx.Client(base_url=live_mcp_server, timeout=10.0) as client:
+        auth_headers = {
+            "MCP-Protocol-Version": "2025-11-25",
+            "Authorization": "Bearer janus-demo-caregiver-sarah",
+        }
         # Step 1: Discover tools and outputSchemas
         r_list = client.post(
             "/mcp",
             json={"jsonrpc": "2.0", "id": 10, "method": "tools/list", "params": {}},
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_list.status_code == 200
         tools = {t["name"]: t for t in r_list.json()["result"]["tools"]}
@@ -133,11 +147,12 @@ def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_log.status_code == 200
-        sc_log = r_log.json()["result"]["structuredContent"]
-        jsonschema.validate(instance=sc_log, schema=tools["log_daily_routine"]["outputSchema"])
+        sc_log_raw = r_log.json()["result"]["structuredContent"]
+        jsonschema.validate(instance=sc_log_raw, schema=tools["log_daily_routine"]["outputSchema"])
+        sc_log = sc_log_raw.get("result", sc_log_raw)
         assert sc_log["status"] == "pending_confirmation"
         assert sc_log["database_writes"] == 0
         tx_id = sc_log["transaction_id"]
@@ -154,11 +169,12 @@ def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
                     "arguments": {"senior_id": "margaret_01"},
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_summary.status_code == 200
-        sc_summary = r_summary.json()["result"]["structuredContent"]
-        jsonschema.validate(instance=sc_summary, schema=tools["get_caregiver_summary"]["outputSchema"])
+        sc_summary_raw = r_summary.json()["result"]["structuredContent"]
+        jsonschema.validate(instance=sc_summary_raw, schema=tools["get_caregiver_summary"]["outputSchema"])
+        sc_summary = sc_summary_raw.get("result", sc_summary_raw)
         assert "events" in sc_summary
         assert "slots" in sc_summary
         assert "visual_card" in sc_summary
@@ -184,7 +200,7 @@ def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_verify_prev.status_code == 200
         sc_verify_prev = r_verify_prev.json()["result"]["structuredContent"]
@@ -208,7 +224,7 @@ def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_verify_commit.status_code == 200
         sc_verify_commit = r_verify_commit.json()["result"]["structuredContent"]
@@ -232,11 +248,12 @@ def test_contract_output_schema_conformance_all_tools(live_mcp_server: str):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=auth_headers,
         )
         assert r_missed.status_code == 200
-        sc_missed = r_missed.json()["result"]["structuredContent"]
-        jsonschema.validate(instance=sc_missed, schema=tools["flag_missed_routine"]["outputSchema"])
+        sc_missed_raw = r_missed.json()["result"]["structuredContent"]
+        jsonschema.validate(instance=sc_missed_raw, schema=tools["flag_missed_routine"]["outputSchema"])
+        sc_missed = sc_missed_raw.get("result", sc_missed_raw)
         assert "status" in sc_missed
         assert "alert_payload" in sc_missed
 
@@ -302,7 +319,10 @@ def test_real_network_latency_benchmark(live_mcp_server: str):
         client.post(
             "/mcp",
             json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers={
+                "MCP-Protocol-Version": "2025-11-25",
+                "Authorization": "Bearer janus-demo-caregiver-sarah",
+            },
         )
 
         for tool_name, params in call_configs:
@@ -311,7 +331,10 @@ def test_real_network_latency_benchmark(live_mcp_server: str):
                 client.post(
                     "/mcp",
                     json={"jsonrpc": "2.0", "id": 999, "method": "tools/call", "params": params},
-                    headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer janus-demo-token-alexa-plus-2026"},
+                    headers={
+                        "MCP-Protocol-Version": "2025-11-25",
+                        "Authorization": "Bearer janus-demo-caregiver-sarah",
+                    },
                 )
 
             durations: List[float] = []
@@ -328,7 +351,7 @@ def test_real_network_latency_benchmark(live_mcp_server: str):
                     },
                     headers={
                         "MCP-Protocol-Version": "2025-11-25",
-                        "Authorization": "Bearer janus-demo-token-alexa-plus-2026",
+                        "Authorization": "Bearer janus-demo-caregiver-sarah",
                     },
                 )
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0
@@ -368,3 +391,122 @@ def test_real_network_latency_benchmark(live_mcp_server: str):
             f"{res['tool']:<25} | {res['calls']:>5} | {res['avg']:>8.2f}ms | {res['p50']:>8.2f}ms | {res['p95']:>8.2f}ms | {res['max']:>8.2f}ms | {sla_pass:>12}"
         )
     print("=" * 78 + "\n")
+
+
+def test_real_subprocess_auth_and_access_control(live_mcp_server: str):
+    """Verify HTTP auth and senior access control over real uvicorn subprocess HTTP:
+    1. no token -> 401
+    2. garbage token -> 401
+    3. wildcard-prefix token like janus-demo-x -> 401
+    4. margaret token reading arthur_02 -> FORBIDDEN
+    5. senior token doing a handoff -> FORBIDDEN
+    6. caregiver-sarah reading margaret_01 -> OK
+    7. rejected attempt appears in audit_log
+    """
+    with httpx.Client(base_url=live_mcp_server, timeout=10.0) as client:
+        # 1. No token -> 401
+        r_no_token = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+            headers={"MCP-Protocol-Version": "2025-11-25"},
+        )
+        assert r_no_token.status_code == 401, f"Expected 401 for missing token, got {r_no_token.status_code}"
+
+        # 2. Garbage token -> 401
+        r_garbage = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+            headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer totally-garbage-token-999"},
+        )
+        assert r_garbage.status_code == 401, f"Expected 401 for garbage token, got {r_garbage.status_code}"
+
+        # 3. Wildcard prefix token like janus-demo-x -> 401
+        r_prefix = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 3, "method": "tools/list", "params": {}},
+            headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer janus-demo-x"},
+        )
+        assert r_prefix.status_code == 401, f"Expected 401 for wildcard-prefix token, got {r_prefix.status_code}"
+
+        # 4. Margaret token reading arthur_02 -> FORBIDDEN
+        r_margaret_arthur = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_caregiver_summary",
+                    "arguments": {"senior_id": "arthur_02"},
+                },
+            },
+            headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer janus-demo-senior-margaret"},
+        )
+        assert r_margaret_arthur.status_code == 200
+        sc_ma = r_margaret_arthur.json()["result"]["structuredContent"]
+        res_ma = sc_ma.get("result", sc_ma)
+        assert res_ma["status"] == "error"
+        assert res_ma["error_code"] == "FORBIDDEN"
+        assert res_ma["database_writes"] == 0
+
+        # 5. Senior token doing a handoff -> FORBIDDEN
+        r_senior_handoff = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {
+                    "name": "verify_routine_state",
+                    "arguments": {
+                        "confirm": False,
+                        "senior_id": "margaret_01",
+                        "action_type": "shift_handoff",
+                        "payload": {
+                            "departing_caregiver": "Senior Margaret",
+                            "incoming_caregiver": "Caregiver Sarah",
+                            "handoff_notes": "Attempted senior handoff",
+                        },
+                    },
+                },
+            },
+            headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer janus-demo-senior-margaret"},
+        )
+        assert r_senior_handoff.status_code == 200
+        sc_sh = r_senior_handoff.json()["result"]["structuredContent"]
+        res_sh = sc_sh.get("result", sc_sh)
+        assert res_sh["status"] == "error"
+        assert res_sh["error_code"] == "FORBIDDEN"
+        assert res_sh["database_writes"] == 0
+
+        # 6. Caregiver-sarah reading margaret_01 -> OK
+        r_sarah_margaret = client.post(
+            "/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {
+                    "name": "get_caregiver_summary",
+                    "arguments": {"senior_id": "margaret_01"},
+                },
+            },
+            headers={"MCP-Protocol-Version": "2025-11-25", "Authorization": "Bearer janus-demo-caregiver-sarah"},
+        )
+        assert r_sarah_margaret.status_code == 200
+        sc_sm_raw = r_sarah_margaret.json()["result"]["structuredContent"]
+        sc_sm = sc_sm_raw.get("result", sc_sm_raw)
+        assert sc_sm["status"] == "success"
+        assert sc_sm["senior_id"] == "margaret_01"
+
+        # 7. Rejected attempt appears in audit_log
+        assert _LIVE_SERVER_DB_PATH is not None, "DB path not set"
+        conn = storage.get_connection(_LIVE_SERVER_DB_PATH)
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT actor, role, tool, senior_id, outcome FROM audit_log WHERE outcome = 'FORBIDDEN'")
+            forbidden_rows = cursor.fetchall()
+            assert len(forbidden_rows) >= 1, "Expected at least one FORBIDDEN record in audit_log"
+        finally:
+            conn.close()
+

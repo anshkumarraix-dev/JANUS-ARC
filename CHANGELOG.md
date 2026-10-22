@@ -29,6 +29,49 @@ After **every** codebase modification, file creation, instruction update, or con
 
 ## 📜 Change Log Entries
 
+### [2026-10-22 10:25:00 IST] - Doc-Code Alignment: PROPOSAL_TTL_SECONDS Constant, Categories Invariant, ADR-003 Superseded Note, and Quickstart Overhaul
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Documentation & Quality Assurance (Enforced Truth-in-Docs, Doc-Constant Sync Test, Refactored Quickstart)
+- **Files Modified / Created**:
+  - `src/janus/storage.py` (Defined single canonical constant `PROPOSAL_TTL_SECONDS = 300` [5 minutes] used across proposal creation).
+  - `docs/DESIGN.md` (Updated proposal validity TTL to 5 minutes [300s]; strictly enforced canonical 5 categories: `meal`, `hydration`, `vitamins`, `activity`, `wellness`; removed all references to `walk` and `mobility`; deleted emergency escalation clause and added explicit Known Limitation: *"Janus is not an emergency or medical system and does not detect emergencies."*).
+  - `docs/DECISION_LOG.md` (Added comprehensive "Superseded by implementation" note under ADR-003 specifying real `verify_routine_state` signature, parameter descriptions, and return types: `ProposalPreviewResponse`, `CommittedStateResponse`, `AlreadyCommittedResponse`, and `ProposalErrorResponse`, preserving original ADR text for historical auditability).
+  - `docs/GLOSSARY.md` (Aligned non-clinical routine definition strictly to `meal`, `hydration`, `vitamins`, `activity`, `wellness`).
+  - `docs/DEMO.md` (Replaced old `python src/janus/server.py` with `python -m janus.server` with `JANUS_DEMO_MODE=1`; removed invented numeric error codes `1001`, `1002`, `1004` in table and replaced with actual `ErrorCode` enums).
+  - `README.md` (Rewrote quickstart: clone -> venv -> activate for bash & PowerShell -> `pip install -e ".[dev]"` -> `python -m janus.server` -> open simulator; stated plainly that `JANUS_DEMO_MODE=1` is required for demo tokens; published demo tokens table with roles and scopes; updated Known Limitations #2 to document real enforced auth after F2 and added limitation #4 for non-emergency scope; updated audit command to `python -m janus.audit verify`; updated passing test count to 63; preserved unchecked demonstration video link).
+  - `scripts/smoke.sh` & `scripts/smoke.ps1` (Updated smoke tests to set `JANUS_DEMO_MODE="1"`, added required HTTP Accept and Bearer headers, and printed exact reviewer activation and run commands upon completion).
+  - `tests/test_gate.py` (Added `test_proposal_ttl_constant_matches_design_doc` asserting that `docs/DESIGN.md` and `storage.PROPOSAL_TTL_SECONDS` agree on 5 minutes, failing if they ever diverge).
+  - `.gitignore` (Added `scratch/` to ignored patterns; confirmed `src/janus_mcp.egg-info/` is untracked and ignored).
+- **Verification / Tests Passed**:
+  - `pytest -q`: `63 passed in 7.96s` (100% pass rate).
+  - `test_proposal_ttl_constant_matches_design_doc` in `tests/test_gate.py` passed.
+  - Reviewer smoke scripts (`scripts/smoke.sh` and `scripts/smoke.ps1`) verified.
+- **Impact & Next Steps**:
+  - Zero claims in documentation exist without backing code and automated tests.
+
+### [2026-10-22 10:10:00 IST] - Connect FastMCP v2 Auth Middleware over Real HTTP with Role & Senior Access Control Invariants
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
+- **Change Type**: Security & Feature Integration (Starlette Auth Middleware, Role-Based Access Control, Real HTTP Enforcement)
+- **Files Modified / Created**:
+  - `src/janus/auth.py` (Added `current_identity` contextvar, explicit demo token table with `JANUS_DEMO_MODE=1`, removed `janus-demo-*` prefix fallback and wildcard tokens, restricted admin wildcard token exclusively to `JANUS_ADMIN_TOKEN` env var, implemented role-based permissions via `check_role_access`).
+  - `src/janus/server.py` (Integrated Starlette `AuthMiddleware` in `get_app()`; enforced `check_role_access` across all 4 tools and MCP resource before storage calls; records rejected attempts in `audit_log` with `outcome='FORBIDDEN'`; preserves unauthenticated access for `/health` and CORS `OPTIONS` preflights).
+  - `simulator/index.html` (Updated default bearer token to `janus-demo-senior-margaret`; added real HTTP 401 and structured FORBIDDEN handling in `callMCPTool`; added live "Try to Break It" buttons demonstrating HTTP 401, cross-senior FORBIDDEN, and senior shift handoff FORBIDDEN refusals).
+  - `tests/conftest.py` (Added `isolated_db` fixture and admin test contextvar for unit tests).
+  - `tests/test_auth_audit.py` (Updated tests for explicit tokens, demo mode toggle, prefix fallback removal, admin env var, and role rules).
+  - `tests/test_janus.py` & `tests/test_apl.py` (Updated HTTP TestClient calls with explicit bearer token headers).
+  - `tests/test_real_network_latency.py` (Updated benchmarks with explicit caregiver token; added `test_real_subprocess_auth_and_access_control` proving no-token 401, garbage-token 401, wildcard-prefix 401, cross-senior FORBIDDEN, senior-handoff FORBIDDEN, caregiver-success 200, and audit_log record).
+- **Diff / Summary of Changes**:
+  - Starlette ASGI `AuthMiddleware` extracts `Authorization: Bearer <token>`, validates via `auth.verify_token`, sets `current_identity` contextvar, or returns structured HTTP 401 JSON.
+  - `/health` and preflight CORS `OPTIONS` bypass authentication.
+  - In `log_daily_routine`, `get_caregiver_summary`, `verify_routine_state`, and `flag_missed_routine`, `check_role_access` checks role invariants (seniors only log/confirm for themselves; caregivers propose/confirm handoffs and read summaries for assigned seniors).
+  - Unauthorized access attempts immediately write to the cryptographic SHA-256 hash-chained `audit_log` with `outcome="FORBIDDEN"` and 0 database writes.
+- **Verification / Tests Passed**:
+  - `pytest -q`: `62 passed in 7.26s` (100% pass across all test suites).
+  - Real uvicorn subprocess latency benchmark: 50 calls/tool, all p95 < 17ms (SLA < 100ms: PASS).
+  - Live `curl.exe` proofs: HTTP 401 on missing token, HTTP 401 on garbage token, HTTP 401 on wildcard prefix token, HTTP 200 with structured `FORBIDDEN` error on cross-senior and senior-handoff attempts, HTTP 200 `success` on authorized caregiver summary.
+- **Impact & Next Steps**:
+  - Full end-to-end authentication and role access control verified over real loopback HTTP.
+
 ### [2026-10-21 22:45:00 IST] - Configure Official Remote URL: anshkumarraix-dev/JANUS-ARC
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Git Remote & Repository Metadata

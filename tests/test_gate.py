@@ -283,3 +283,28 @@ def test_concurrent_double_confirm_yields_one_record(isolated_gate_db):
         assert rows[0]["value"] == "Morning Porch Walk"
     finally:
         conn.close()
+
+
+def test_proposal_ttl_constant_matches_design_doc():
+    """Verify that PROPOSAL_TTL_SECONDS in storage.py matches docs/DESIGN.md exactly.
+
+    Fails if the doc and constant disagree.
+    """
+    import re
+    from pathlib import Path
+
+    design_doc_path = Path(__file__).resolve().parent.parent / "docs" / "DESIGN.md"
+    assert design_doc_path.exists(), f"DESIGN.md not found at {design_doc_path}"
+
+    content = design_doc_path.read_text(encoding="utf-8")
+
+    match = re.search(r"(\d+)-minute validity TTL", content)
+    assert match is not None, "Could not find 'X-minute validity TTL' pattern in docs/DESIGN.md"
+
+    documented_minutes = int(match.group(1))
+    expected_seconds = documented_minutes * 60
+
+    assert (
+        storage.PROPOSAL_TTL_SECONDS == expected_seconds
+    ), f"Mismatch between storage.PROPOSAL_TTL_SECONDS ({storage.PROPOSAL_TTL_SECONDS}s) and docs/DESIGN.md ({documented_minutes} min = {expected_seconds}s)"
+

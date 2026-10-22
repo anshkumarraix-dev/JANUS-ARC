@@ -179,12 +179,16 @@ def test_tool_discovery_streamable_http(isolated_db):
     3. InputSchema and OutputSchema are published as typed Pydantic models.
     4. Descriptions contain WHEN TO CALL, WHEN NOT TO CALL, and confirmation gate guidance.
     """
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     app = get_app(host="127.0.0.1")
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         r_list = client.post(
             "/mcp",
             json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_list.status_code == 200
         tools = {t["name"]: t for t in r_list.json()["result"]["tools"]}
@@ -243,13 +247,17 @@ def test_mcp_resource_senior_today(isolated_db):
     """Test MCP resource janus://senior/{id}/today over Streamable HTTP."""
     import json
 
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     app = get_app(host="127.0.0.1")
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         # Check resource template discovery
         r_tmpl = client.post(
             "/mcp",
             json={"jsonrpc": "2.0", "id": 50, "method": "resources/templates/list", "params": {}},
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_tmpl.status_code == 200
         templates = r_tmpl.json()["result"]["resourceTemplates"]
@@ -265,7 +273,7 @@ def test_mcp_resource_senior_today(isolated_db):
                 "method": "resources/read",
                 "params": {"uri": "janus://senior/margaret_01/today"},
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_read.status_code == 200
         contents = r_read.json()["result"]["contents"]
@@ -293,6 +301,10 @@ def test_structured_error_codes(isolated_db):
         assert e.code == ErrorCode.INVALID_CATEGORY
         assert "Invalid category 'prescription_meds'" in str(e)
 
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     # 2. verify_routine_state errors return stable error codes
     app = get_app(host="127.0.0.1")
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
@@ -308,7 +320,7 @@ def test_structured_error_codes(isolated_db):
                     "arguments": {"confirm": True},
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r1.status_code == 200
         res1 = r1.json()["result"]["structuredContent"]["result"]
@@ -327,7 +339,7 @@ def test_structured_error_codes(isolated_db):
                     "arguments": {"confirm": True, "transaction_id": "tx_nonexistent_999"},
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r2.status_code == 200
         res2 = r2.json()["result"]["structuredContent"]["result"]
@@ -337,6 +349,10 @@ def test_structured_error_codes(isolated_db):
 
 def test_verify_routine_state_preview_over_http(isolated_db):
     """Verify verify_routine_state returns PROPOSAL_PREVIEW when confirm=False over HTTP without DB writes."""
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     app = get_app(host="127.0.0.1")
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         # Check initial DB count for shift_handoffs
@@ -363,7 +379,7 @@ def test_verify_routine_state_preview_over_http(isolated_db):
                     },
                 },
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
         assert r_preview.status_code == 200
         data = r_preview.json()["result"]["structuredContent"]["result"]
@@ -408,6 +424,10 @@ async def test_tool_execution_latency_under_100ms(isolated_db):
 
 
     # 2. End-to-end Streamable HTTP round-trip benchmark (< 500 ms SLA)
+    AUTH_HEADERS = {
+        "MCP-Protocol-Version": "2025-11-25",
+        "Authorization": "Bearer janus-demo-caregiver-sarah",
+    }
     app = get_app(host="127.0.0.1")
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         # Warmup
@@ -419,7 +439,7 @@ async def test_tool_execution_latency_under_100ms(isolated_db):
                 "method": "tools/call",
                 "params": {"name": "log_daily_routine", "arguments": {"senior_id": "margaret_01", "category": "hydration"}},
             },
-            headers={"MCP-Protocol-Version": "2025-11-25"},
+            headers=AUTH_HEADERS,
         )
 
         http_latencies = []
@@ -441,7 +461,7 @@ async def test_tool_execution_latency_under_100ms(isolated_db):
                         },
                     },
                 },
-                headers={"MCP-Protocol-Version": "2025-11-25"},
+                headers=AUTH_HEADERS,
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000
             http_latencies.append(elapsed_ms)

@@ -27,6 +27,9 @@ DEFAULT_DB_PATH = os.environ.get(
 # Canonical non-clinical routine categories (Do NOT use 'medication')
 VALID_CATEGORIES = {"meal", "hydration", "vitamins", "activity", "wellness"}
 
+# Proposal expiration TTL in seconds (5 minutes = 300 seconds)
+PROPOSAL_TTL_SECONDS = 300
+
 # Module-level clock override for testing
 _current_time_override: Optional[datetime] = None
 
@@ -1030,7 +1033,7 @@ def create_proposal(
     """
     ensure_senior_exists(senior_id, db_path=db_path)
     now_dt = get_current_time(now)
-    expires_dt = now_dt + timedelta(minutes=5)
+    expires_dt = now_dt + timedelta(seconds=PROPOSAL_TTL_SECONDS)
 
     created_at = format_iso(now_dt)
     expires_at = format_iso(expires_dt)
