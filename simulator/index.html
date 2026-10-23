@@ -4338,6 +4338,15 @@ aspect-ratio: 8 / 5;
     let isListening = false;
     let speechRecognition = null;
 
+    function sanitizeToken(token) {
+      if (!token) return '';
+      let t = String(token).trim();
+      t = t.replace(/^["']|["']$/g, '').trim();
+      t = t.replace(/^Bearer\s+/i, '').trim();
+      t = t.replace(/^["']|["']$/g, '').trim();
+      return t;
+    }
+
     // Helper: Read dynamic settings
     function getSetting(key) {
       switch(key) {
@@ -4346,7 +4355,11 @@ aspect-ratio: 8 / 5;
         case 'departing': return document.getElementById('setting-departing').value.trim() || 'David';
         case 'incoming': return document.getElementById('setting-incoming').value.trim() || 'Sarah';
         case 'endpoint': return document.getElementById('setting-endpoint').value.trim() || 'http://127.0.0.1:8000/mcp';
-        case 'token': return document.getElementById('setting-token').value.trim() || 'janus-demo-senior-margaret';
+        case 'token': {
+          const raw = document.getElementById('setting-token').value.trim();
+          const clean = sanitizeToken(raw);
+          return clean || 'janus-demo-senior-margaret';
+        }
         default: return '';
       }
     }
@@ -4548,7 +4561,8 @@ aspect-ratio: 8 / 5;
       if (is401) {
         isRefusal = true;
         gateStatus = 'refusal';
-        decisionText = 'Starlette AuthMiddleware: Missing or invalid Bearer token. Request refused with HTTP 401 (0 Database Writes).';
+        const authReason = responseJson?.message || responseJson?.detail || 'Missing or invalid Bearer token';
+        decisionText = `Starlette AuthMiddleware: ${authReason}. Request refused with HTTP 401 (0 Database Writes).`;
         if (precondAccess) precondAccess.textContent = '❌ Failed (401 Unauthorized)';
       } else if (isStructuredError) {
         isRefusal = true;
@@ -5074,7 +5088,8 @@ aspect-ratio: 8 / 5;
           'MCP-Protocol-Version': '2025-11-25'
         };
         if (!options.noAuth && token) {
-          headers['Authorization'] = `Bearer ${token}`;
+          const clean = options.rawAuth ? token : sanitizeToken(token);
+          if (clean) headers['Authorization'] = `Bearer ${clean}`;
         }
 
         if (lightbar) lightbar.classList.add('active');
@@ -5090,7 +5105,6 @@ aspect-ratio: 8 / 5;
 
         // Handle HTTP 401 Unauthorized from Starlette AuthMiddleware
         if (response.status === 401) {
-          updateServerErrorBanner(true, 'Authentication refused (HTTP 401): Missing or invalid Bearer token.');
           document.getElementById('hud-server-pill').className = 'hud-chip';
           document.getElementById('hud-server-pill').style.borderColor = 'var(--accent-rose)';
           document.getElementById('hud-server-pill').style.color = 'var(--accent-rose)';
@@ -5100,12 +5114,13 @@ aspect-ratio: 8 / 5;
           let errJson = null;
           try {
             errJson = await response.json();
-            errDetail = errJson.detail || errDetail;
+            errDetail = errJson.message || errJson.detail || errJson.error || errDetail;
             logDebug(payload, errJson, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
           } catch(e) {
             errJson = { status: 401, error: errDetail };
             logDebug(payload, errJson, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
           }
+          updateServerErrorBanner(true, `Authentication refused (HTTP 401): ${errDetail}`);
 
           if (options.traceContext) {
             recordTraceTurn({

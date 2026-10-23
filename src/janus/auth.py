@@ -73,16 +73,19 @@ def get_token_registry() -> Dict[str, Dict[str, Any]]:
     """
     registry: Dict[str, Dict[str, Any]] = {}
 
-    if os.environ.get("JANUS_DEMO_MODE", "0").strip() in ("1", "true", "True"):
+    raw_demo = os.environ.get("JANUS_DEMO_MODE", "0").strip().strip("'\"").lower()
+    if raw_demo in ("1", "true", "yes", "on"):
         registry.update(DEMO_TOKENS)
 
     admin_token = os.environ.get("JANUS_ADMIN_TOKEN")
-    if admin_token and admin_token.strip():
-        registry[admin_token.strip()] = {
-            "actor": "admin",
-            "role": Role.ADMIN.value,
-            "allowed_seniors": {"*"},
-        }
+    if admin_token:
+        clean_admin = admin_token.strip().strip("'\"")
+        if clean_admin:
+            registry[clean_admin] = {
+                "actor": "admin",
+                "role": Role.ADMIN.value,
+                "allowed_seniors": {"*"},
+            }
 
     return registry
 
@@ -100,15 +103,22 @@ def extract_bearer_token(auth_header: Optional[str]) -> Optional[str]:
     Examples:
         'Bearer abc123' -> 'abc123'
         'bearer abc123' -> 'abc123'
+        'Bearer Bearer abc123' -> 'abc123'
+        'Bearer "abc123"' -> 'abc123'
         'Token abc123'  -> None
         None            -> None
     """
     if not auth_header:
         return None
     match = re.match(r"^Bearer\s+(.+)$", auth_header.strip(), re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    return None
+    if not match:
+        return None
+    token = match.group(1).strip()
+    # Strip any accidental repeated Bearer prefix
+    token = re.sub(r"^(Bearer\s+)+", "", token, flags=re.IGNORECASE).strip()
+    # Strip any surrounding matching quotes
+    token = token.strip("'\"")
+    return token if token else None
 
 
 def verify_token(

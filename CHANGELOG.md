@@ -28,6 +28,24 @@ After **every** codebase modification, file creation, instruction update, or con
 ---
 
 ## 📜 Change Log Entries
+### [2026-10-23 22:25:00 IST] - Diagnose and Fix MCP Auth & Simulator Connection Hardening
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini)
+- **Change Type**: Bugfix & Auth Hardening
+- **Files Modified / Created**:
+  - `src/janus/auth.py` (Hardened `extract_bearer_token` to strip accidental duplicate `Bearer ` prefix and surrounding single/double quotes. Enhanced `get_token_registry()` to robustly parse `JANUS_DEMO_MODE` env var against quotes, trailing whitespace, and case variations).
+  - `src/janus/server.py` (Enhanced `get_app()` demo mode parser to match `auth.py`. Added `detail: reason` alongside `message: reason` in `AuthMiddleware` 401 JSONResponse for FastAPI/Starlette client compatibility).
+  - `simulator/index.html` (Added `sanitizeToken` utility to strip quotes, extra whitespace, and redundant `Bearer ` prefixes from inputs and headers. Updated 401 error handler in `callMCPTool` to extract `errJson.message || errJson.detail || errJson.error` rather than falling back to static fallback string. Enhanced trace decision text to dynamically report server auth refusal reasons).
+  - `tests/test_auth_hardening.py` (Added 4 regression tests verifying quoted `JANUS_DEMO_MODE` variations, nested/quoted Bearer token extraction, ASGI 401 response compatibility, and authenticated tools/list execution).
+- **Diff / Summary of Changes**:
+  - Diagnosed root causes: (1) Starlette 401 JSONResponse returned `"message"` while simulator read `errJson.detail`, masking actual backend refusal reasons behind static fallback; (2) Bearer token extraction failed on tokens passed with duplicate `Bearer ` prefix or surrounding quotes; (3) Environment parsing failed when `JANUS_DEMO_MODE` was set with enclosing quotes (e.g. in `.env` or Windows scripts).
+  - Fixed extraction and parsing across both backend (`auth.py`, `server.py`) and simulator frontend (`simulator/index.html`).
+- **Verification / Tests Passed**:
+  - `pytest -q tests/test_auth_hardening.py`: 30 passed in 4.30s.
+  - `pytest -q`: 271 passed in 29.98s (100% pass across complete test suite).
+  - Server startup and probe verified with `httpx` against running uvicorn instance.
+- **Impact & Next Steps**:
+  - Eliminates connection and auth refusal issues when launching the simulator with demo tokens across all Windows/Linux startup variants.
+
 ### [2026-10-22 23:58:00 IST] - Final Visual, Accessibility & Usability Polish (Warm Mission Control)
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini 3.8 Flash)
 - **Change Type**: Frontend Usability & Accessibility Polish

@@ -126,6 +126,7 @@ class AuthMiddleware:
                 {
                     "error": "UNAUTHORIZED",
                     "message": reason,
+                    "detail": reason,
                     "database_writes": 0,
                     "status_code": 401,
                 },
@@ -1363,8 +1364,11 @@ def get_app(host: str = "0.0.0.0") -> Starlette:
 
     app.add_route("/health", health_endpoint, methods=["GET"])
 
-    demo_mode = os.environ.get("JANUS_DEMO_MODE", "0").strip() in ("1", "true", "True")
+    raw_demo = os.environ.get("JANUS_DEMO_MODE", "0").strip().strip("'\"").lower()
+    demo_mode = raw_demo in ("1", "true", "yes", "on")
     admin_token = os.environ.get("JANUS_ADMIN_TOKEN")
+    if admin_token:
+        admin_token = admin_token.strip().strip("'\"")
     if not demo_mode and not admin_token:
         logger.warning(
             "SECURITY CONFIGURATION NOTICE: Neither JANUS_DEMO_MODE=1 nor JANUS_ADMIN_TOKEN is configured. "

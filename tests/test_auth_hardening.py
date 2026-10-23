@@ -29,6 +29,8 @@ from janus import storage
 from janus.auth import (
     Role,
     current_identity,
+    extract_bearer_token,
+    get_token_registry,
     set_current_identity,
 )
 from janus.errors import ErrorCode
@@ -135,6 +137,72 @@ def test_demo_tokens_rejected_when_demo_mode_disabled(auth_db, monkeypatch):
     )
     assert resp.status_code == 401
     assert resp.json()["error"] == "UNAUTHORIZED"
+
+
+def test_demo_mode_env_quoted_and_truthy_variations(monkeypatch):
+    """JANUS_DEMO_MODE safely handles quotes, case variations, and truthy values."""
+    for val in ('"1"', "'1'", "1", "true", "True", "TRUE", "yes", "on"):
+        monkeypatch.setenv("JANUS_DEMO_MODE", val)
+        reg = get_token_registry()
+        assert "janus-demo-senior-margaret" in reg
+        assert "janus-demo-caregiver-sarah" in reg
+
+    for val in ("0", "false", "no", "off", ""):
+        monkeypatch.setenv("JANUS_DEMO_MODE", val)
+        reg = get_token_registry()
+        assert "janus-demo-senior-margaret" not in reg
+
+
+def test_bearer_token_nested_and_quoted_extraction():
+    """extract_bearer_token strips accidental repeated Bearer prefix and surrounding quotes."""
+    assert extract_bearer_token("Bearer Bearer janus-demo-senior-margaret") == "janus-demo-senior-margaret"
+    assert extract_bearer_token('Bearer "janus-demo-senior-margaret"') == "janus-demo-senior-margaret"
+    assert extract_bearer_token("Bearer 'janus-demo-caregiver-sarah'") == "janus-demo-caregiver-sarah"
+    assert extract_bearer_token("Bearer   janus-demo-senior-margaret  ") == "janus-demo-senior-margaret"
+    assert extract_bearer_token("Bearer ") is None
+    assert extract_bearer_token('Bearer ""') is None
+    assert extract_bearer_token("Bearer ''") is None
+    assert extract_bearer_token(None) is None
+
+
+def test_asgi_auth_middleware_nested_bearer_and_quoted_token_succeeds(auth_db, monkeypatch):
+    """Requests with duplicate Bearer prefix or quoted tokens succeed on ASGI endpoint."""
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    app = get_app()
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        # Nested Bearer prefix
+        resp1 = client.post(
+            "/mcp",
+            headers={"Authorization": "Bearer Bearer janus-demo-senior-margaret"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+        )
+        assert resp1.status_code == 200
+
+        # Quoted token
+        resp2 = client.post(
+            "/mcp",
+            headers={"Authorization": 'Bearer "janus-demo-senior-margaret"'},
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        )
+        assert resp2.status_code == 200
+
+
+def test_asgi_auth_middleware_401_returns_message_and_detail(auth_db, monkeypatch):
+    """HTTP 401 response provides both message and detail fields for client compatibility."""
+    monkeypatch.setenv("JANUS_DEMO_MODE", "1")
+    app = get_app()
+    client = TestClient(app)
+
+    resp = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+    )
+    assert resp.status_code == 401
+    body = resp.json()
+    assert body["error"] == "UNAUTHORIZED"
+    assert "detail" in body
+    assert "message" in body
+    assert body["detail"] == body["message"]
 
 
 @pytest.mark.asyncio
