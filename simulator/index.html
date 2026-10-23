@@ -573,10 +573,10 @@
 
     /* Screen Viewport: STRICT 768x480 Echo Show 8 Landscape */
     .screen-viewport {
-      width: 100%;
-      max-width: 768px;
-      height: auto;
-      aspect-ratio: 8 / 5;
+     width: 100%;
+max-width: 768px;
+height: 480px;
+aspect-ratio: 8 / 5;
       min-width: 0;
       background: var(--screen-bg);
       border-radius: var(--radius-md);
@@ -5579,7 +5579,7 @@
       pendingTx = null;
       updatePendingProposalBanner();
       dismissToDefaultSummary();
-      setAlexaSpeaking(false, "Proposal dismissed in this UI. No confirmation was sent; server-side proposal expiry is controlled by the backend.");
+      setAlexaSpeaking(false, "Action cancelled. Nothing was written.");
       recordTraceTurn({
         utterance: `[Card Action] Cancel ("No") proposal: ${prevId || 'none'}`,
         ruleName: "Rule 2: Local proposal dismissal (no server cancellation tool is called)",
