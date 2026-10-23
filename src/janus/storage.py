@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional,Tuple
 from zoneinfo import ZoneInfo
 
-from janus.errors import AuditWriteError, ErrorCode, InvalidCategoryError, SafetyBlockedError
+from janus.errors import AuditWriteError, InvalidCategoryError, SafetyBlockedError
 from janus.safety import SafetyOutcome, assess_safety
 from janus.auth import AuthError, get_current_identity, check_senior_access, check_role_access
 

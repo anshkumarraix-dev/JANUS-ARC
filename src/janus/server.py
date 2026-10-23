@@ -28,7 +28,6 @@ from janus.auth import (
     check_senior_access,
     check_role_access,
     get_current_identity,
-    Role,
 )
 from janus.errors import (
     ErrorCode,
@@ -56,7 +55,6 @@ from janus.tools import (
 )
 from janus.apl import (
     build_routine_preview_card,
-    build_caregiver_summary_card,
     build_handoff_confirm_card,
     build_missed_routine_card,
 )

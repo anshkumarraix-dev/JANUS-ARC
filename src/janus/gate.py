@@ -8,7 +8,7 @@ All write/state-mutating operations MUST require a two-step confirmation flow:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from datetime import datetime
 
 from janus import storage

@@ -31,7 +31,6 @@ import asyncio
 import os
 import sys
 import tempfile
-import sqlite3
 from typing import Any, Dict, Optional
 
 import pytest
@@ -42,8 +41,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from janus import storage
 from janus.audit import verify_audit_chain, main as audit_main
-from janus.auth import Role, set_current_identity, current_identity
-from janus.errors import AuditWriteError, ErrorCode, InvalidCategoryError, SafetyBlockedError
+from janus.auth import current_identity
+from janus.errors import ErrorCode, InvalidCategoryError, SafetyBlockedError
 from janus.gate import ConfirmationGate
 from janus.server import (
     get_app,
