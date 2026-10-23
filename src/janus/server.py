@@ -28,11 +28,14 @@ from janus.auth import (
     check_senior_access,
     check_role_access,
     get_current_identity,
-    Role,
 )
 from janus.errors import (
     ErrorCode,
     InvalidCategoryError,
+)
+from janus.safety import (
+    SafetyOutcome,
+    assess_safety,
 )
 from janus.tools import (
     RoutineLogRequest,
@@ -52,7 +55,6 @@ from janus.tools import (
 )
 from janus.apl import (
     build_routine_preview_card,
-    build_caregiver_summary_card,
     build_handoff_confirm_card,
     build_missed_routine_card,
 )
@@ -102,9 +104,22 @@ class AuthMiddleware:
                     senior_id=None,
                     transaction_id=None,
                     outcome="UNAUTHORIZED",
+                    reason_code="MISSING_TOKEN" if not token else "INVALID_TOKEN",
+                    mutation_committed=False,
                 )
             except Exception as e:
-                logger.warning("Failed to record audit entry for unauthorized request: %s", e)
+                logger.error("Failed to record audit entry for unauthorized request: %s", type(e).__name__)
+                response = JSONResponse(
+                    {
+                        "error": "AUDIT_FAILURE",
+                        "message": "Cryptographic audit logging failed.",
+                        "database_writes": 0,
+                        "status_code": 500,
+                    },
+                    status_code=500,
+                )
+                await response(scope, receive, send)
+                return
 
             # Missing or invalid token -> HTTP 401 JSON
             response = JSONResponse(
@@ -199,6 +214,8 @@ async def log_daily_routine(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -218,6 +235,8 @@ async def log_daily_routine(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ROLE",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -226,13 +245,62 @@ async def log_daily_routine(
             database_writes=0,
         )
 
+    resolved_details = req.details or req.notes or ""
     resolved_cat = req.category or req.routine_type
+
+    # Medical Safety Policy Assessment (priority check before proposal creation)
+    safety_assessment = assess_safety(resolved_details, category=resolved_cat)
+    if safety_assessment.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+        audit_actor = identity.get("actor", "anonymous") if identity else (req.logged_by or "senior_voice")
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="log_daily_routine",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome=f"BLOCKED_{safety_assessment.outcome.value}",
+            reason_code=safety_assessment.matched_rule or safety_assessment.outcome.value,
+            mutation_committed=False,
+        )
+        logger.info(
+            "log_daily_routine intercepted by safety policy: outcome=%s, rule=%s, senior_id=%s",
+            safety_assessment.outcome.value,
+            safety_assessment.matched_rule,
+            req.senior_id,
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=safety_assessment.outcome.value,
+            message=safety_assessment.guidance,
+            database_writes=0,
+        )
+
     if not resolved_cat:
         raise InvalidCategoryError("empty")
 
     validated_cat = storage.validate_category(resolved_cat)
-    resolved_details = req.details or req.notes or ""
-    actor = identity.get("actor", req.logged_by or "senior_voice") if identity else (req.logged_by or "senior_voice")
+    if identity and identity.get("role") != "admin" and req.logged_by and req.logged_by != "senior_voice":
+        if identity.get("actor") and req.logged_by != identity.get("actor"):
+            audit_actor = identity.get("actor", "anonymous")
+            audit_role = identity.get("role", "unknown")
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="log_daily_routine",
+                senior_id=req.senior_id,
+                transaction_id=None,
+                outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_ACTOR",
+                mutation_committed=False,
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=f"Authenticated actor '{identity.get('actor')}' cannot log routines on behalf of '{req.logged_by}'.",
+                database_writes=0,
+            )
+    actor = identity["actor"] if (identity and identity.get("actor")) else (req.logged_by or "senior_voice")
 
     logger.info("log_daily_routine proposal: senior=%s, cat=%s, actor=%s", req.senior_id, validated_cat, actor)
 
@@ -352,6 +420,8 @@ async def get_caregiver_summary(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -371,6 +441,8 @@ async def get_caregiver_summary(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ROLE",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -399,7 +471,7 @@ async def verify_routine_state(
     confirm: Annotated[bool, Field(description="Confirmation flag: False for proposal preview; True for atomic commit")] = False,
     transaction_id: Annotated[Optional[str], Field(description="Transaction ID of a live pending proposal ('tx_...'). Required when confirm=True")] = None,
     senior_id: Annotated[Optional[str], Field(description="Target senior identifier when creating a new proposal")] = None,
-    action_type: Annotated[Optional[str], Field(description="Proposal action type ('shift_handoff', 'routine_log')")] = "shift_handoff",
+    action_type: Annotated[Optional[str], Field(description="Proposal action type ('shift_handoff', 'routine_log')")] = None,
     payload: Annotated[Optional[Dict[str, Any]], Field(description="Action payload when creating a new handoff proposal. Ignored on commit")] = None,
 ) -> Union[ProposalPreviewResponse, CommittedStateResponse, AlreadyCommittedResponse, ProposalErrorResponse]:
     """Safety confirmation gate for committing pending proposals and previewing caregiver shift handoffs.
@@ -422,7 +494,7 @@ async def verify_routine_state(
         confirm=confirm,
         transaction_id=transaction_id,
         senior_id=senior_id,
-        action_type=action_type or "shift_handoff",
+        action_type=action_type,
         payload=payload or {},
     )
 
@@ -448,11 +520,59 @@ async def verify_routine_state(
                 transaction_id=req.transaction_id,
             )
 
+        if prop.get("is_expired"):
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.PROPOSAL_EXPIRED,
+                message=f"Proposal '{req.transaction_id}' has expired.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
+
+        if prop.get("status") == "cancelled":
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.PROPOSAL_CANCELLED,
+                message=f"Proposal '{req.transaction_id}' was cancelled.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
+
+        if prop.get("status") == "blocked":
+            return ProposalErrorResponse(
+                status="error",
+                error_code="PROPOSAL_BLOCKED",
+                message=f"Proposal '{req.transaction_id}' was blocked by medical safety policy.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
+
         act_type = prop["action_type"]
         s_id = prop["senior_id"]
 
-        # Check access before returning proposal preview
         identity = get_current_identity()
+
+        # Validate caller-supplied senior_id if present
+        if req.senior_id and req.senior_id != s_id:
+            audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+            audit_role = identity.get("role", "unknown") if identity else "unknown"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=req.senior_id,
+                transaction_id=req.transaction_id,
+                outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_SENIOR",
+                mutation_committed=False,
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=ErrorCode.FORBIDDEN,
+                message=f"Proposal '{req.transaction_id}' belongs to senior '{s_id}', not '{req.senior_id}'.",
+                database_writes=0,
+                transaction_id=req.transaction_id,
+            )
         if not check_senior_access(identity, s_id):
             audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
             audit_role = identity.get("role", "unknown") if identity else "unknown"
@@ -463,6 +583,8 @@ async def verify_routine_state(
                 senior_id=s_id,
                 transaction_id=req.transaction_id,
                 outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_SENIOR",
+                mutation_committed=False,
             )
             return ProposalErrorResponse(
                 status="error",
@@ -484,6 +606,8 @@ async def verify_routine_state(
                 senior_id=s_id,
                 transaction_id=req.transaction_id,
                 outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_ROLE",
+                mutation_committed=False,
             )
             return ProposalErrorResponse(
                 status="error",
@@ -576,6 +700,8 @@ async def verify_routine_state(
                 senior_id=req.senior_id,
                 transaction_id=None,
                 outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_SENIOR",
+                mutation_committed=False,
             )
             return ProposalErrorResponse(
                 status="error",
@@ -596,6 +722,8 @@ async def verify_routine_state(
                 senior_id=req.senior_id,
                 transaction_id=None,
                 outcome="FORBIDDEN",
+                reason_code="FORBIDDEN_ROLE",
+                mutation_committed=False,
             )
             return ProposalErrorResponse(
                 status="error",
@@ -628,6 +756,34 @@ async def verify_routine_state(
                 incoming_caregiver=incoming,
                 handoff_notes=notes,
                 routine_snapshot=snapshot,
+            )
+
+        # Medical Safety Policy Check on handoff notes
+        safety_assessment = assess_safety(notes, category="wellness")
+        if safety_assessment.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+            audit_actor = identity.get("actor", departing) if identity else departing
+            audit_role = identity.get("role", "caregiver") if identity else "caregiver"
+            storage.record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="verify_routine_state",
+                senior_id=req.senior_id,
+                transaction_id=None,
+                outcome=f"BLOCKED_{safety_assessment.outcome.value}",
+                reason_code=safety_assessment.matched_rule or safety_assessment.outcome.value,
+                mutation_committed=False,
+            )
+            logger.info(
+                "verify_routine_state handoff proposal intercepted by safety policy: outcome=%s, rule=%s, senior_id=%s",
+                safety_assessment.outcome.value,
+                safety_assessment.matched_rule,
+                req.senior_id,
+            )
+            return ProposalErrorResponse(
+                status="error",
+                error_code=safety_assessment.outcome.value,
+                message=safety_assessment.guidance,
+                database_writes=0,
             )
 
         prop = storage.create_proposal(
@@ -678,7 +834,21 @@ async def verify_routine_state(
     # -----------------------------------------------------------------------
     # Case 3: Atomic Confirmed Commit (confirm=True)
     # -----------------------------------------------------------------------
+    identity = get_current_identity()
+
     if not req.transaction_id:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=req.senior_id,
+            transaction_id=None,
+            outcome="CONFIRMATION_FAILED",
+            reason_code=ErrorCode.MISSING_TRANSACTION_ID,
+            mutation_committed=False,
+        )
         return ProposalErrorResponse(
             status="error",
             error_code=ErrorCode.MISSING_TRANSACTION_ID,
@@ -688,6 +858,18 @@ async def verify_routine_state(
 
     prop = storage.get_proposal(req.transaction_id)
     if not prop:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=req.senior_id,
+            transaction_id=req.transaction_id,
+            outcome="CONFIRMATION_FAILED",
+            reason_code=ErrorCode.PROPOSAL_NOT_FOUND,
+            mutation_committed=False,
+        )
         return ProposalErrorResponse(
             status="error",
             error_code=ErrorCode.PROPOSAL_NOT_FOUND,
@@ -699,8 +881,51 @@ async def verify_routine_state(
     act_type = prop["action_type"]
     s_id = prop["senior_id"]
 
+    # Validate caller-supplied senior_id if present
+    if req.senior_id and req.senior_id != s_id:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=req.senior_id,
+            transaction_id=req.transaction_id,
+            outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Proposal '{req.transaction_id}' belongs to senior '{s_id}', not '{req.senior_id}'.",
+            database_writes=0,
+            transaction_id=req.transaction_id,
+        )
+
+    # Validate caller-supplied action_type if present
+    if req.action_type and req.action_type != act_type:
+        audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
+        audit_role = identity.get("role", "unknown") if identity else "unknown"
+        storage.record_audit_entry(
+            actor=audit_actor,
+            role=audit_role,
+            tool="verify_routine_state",
+            senior_id=s_id,
+            transaction_id=req.transaction_id,
+            outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ACTION",
+            mutation_committed=False,
+        )
+        return ProposalErrorResponse(
+            status="error",
+            error_code=ErrorCode.FORBIDDEN,
+            message=f"Proposal '{req.transaction_id}' is for action '{act_type}', not '{req.action_type}'.",
+            database_writes=0,
+            transaction_id=req.transaction_id,
+        )
+
     # Enforce role & senior access BEFORE storage commit
-    identity = get_current_identity()
     if not check_senior_access(identity, s_id):
         audit_actor = identity.get("actor", "anonymous") if identity else "anonymous"
         audit_role = identity.get("role", "unknown") if identity else "unknown"
@@ -711,6 +936,8 @@ async def verify_routine_state(
             senior_id=s_id,
             transaction_id=req.transaction_id,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -732,6 +959,8 @@ async def verify_routine_state(
             senior_id=s_id,
             transaction_id=req.transaction_id,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ROLE",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -740,7 +969,6 @@ async def verify_routine_state(
             database_writes=0,
             transaction_id=req.transaction_id,
         )
-
     commit_res = storage.commit_proposal(transaction_id=req.transaction_id)
     if commit_res["status"] == "error":
         return ProposalErrorResponse(**commit_res)
@@ -866,6 +1094,8 @@ async def flag_missed_routine(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -885,6 +1115,8 @@ async def flag_missed_routine(
             senior_id=req.senior_id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ROLE",
+            mutation_committed=False,
         )
         return ProposalErrorResponse(
             status="error",
@@ -1057,6 +1289,8 @@ def get_senior_today_resource(id: str) -> str:
             senior_id=id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_SENIOR",
+            mutation_committed=False,
         )
         return json.dumps({
             "status": "error",
@@ -1076,6 +1310,8 @@ def get_senior_today_resource(id: str) -> str:
             senior_id=id,
             transaction_id=None,
             outcome="FORBIDDEN",
+            reason_code="FORBIDDEN_ROLE",
+            mutation_committed=False,
         )
         return json.dumps({
             "status": "error",

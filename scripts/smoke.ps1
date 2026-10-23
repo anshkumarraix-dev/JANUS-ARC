@@ -1,14 +1,32 @@
 # scripts/smoke.ps1 -- End-to-end smoke test for Janus (ElderSync) FastMCP Server (PowerShell)
 $ErrorActionPreference = "Stop"
 
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ($scriptDir) {
+    $repoRoot = Split-Path -Parent $scriptDir
+    if (Test-Path (Join-Path $repoRoot "pyproject.toml")) {
+        Set-Location $repoRoot
+    }
+}
+
 Write-Host "===================================================================" -ForegroundColor Cyan
 Write-Host "Janus (ElderSync) -- 3-Command Reviewer Smoke Test (PowerShell)" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
 
 # 1. Determine Python executable
-$pythonExe = (Get-Command python -ErrorAction SilentlyContinue).Source
+$pythonExe = $env:PYTHON_EXE
 if (-not $pythonExe) {
-    $pythonExe = (Get-Command py -ErrorAction SilentlyContinue).Source
+    $candidates = @((Get-Command -All python -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)) + @((Get-Command -All py -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source))
+    foreach ($cand in $candidates) {
+        if (-not $cand) { continue }
+        try {
+            $testOut = & $cand --version 2>&1
+            if ($LASTEXITCODE -eq 0 -and $testOut -match "Python 3") {
+                $pythonExe = $cand
+                break
+            }
+        } catch {}
+    }
 }
 if (-not $pythonExe) {
     Write-Error "Python is not installed or not in PATH."

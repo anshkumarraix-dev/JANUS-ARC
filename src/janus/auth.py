@@ -227,4 +227,3 @@ def get_actor_from_header(auth_header: Optional[str], default_actor: str = "seni
         if is_valid and claims and "actor" in claims:
             return claims["actor"]
     return default_actor
-

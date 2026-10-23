@@ -59,6 +59,15 @@
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
       /* Spacing & Radii */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --text-xs: 11px;
+      --text-sm: 13px;
+      --text-xl: 22px;
+      --border-active: var(--border-focus);
       --radius-sm: 6px;
       --radius-md: 10px;
       --radius-lg: 16px;
@@ -233,6 +242,28 @@
     }
     .hud-role .hud-value {
       color: var(--accent-primary);
+    }
+
+    .hud-voice-btn {
+      cursor: pointer;
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--text-main);
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .hud-voice-btn:hover {
+      filter: brightness(1.2);
+    }
+    .hud-voice-btn.voice-on .hud-value {
+      color: var(--accent-green);
+    }
+    .hud-voice-btn.voice-off {
+      border-color: rgba(244, 63, 94, 0.4);
+      background: rgba(244, 63, 94, 0.1);
+    }
+    .hud-voice-btn.voice-off .hud-value {
+      color: var(--accent-rose);
     }
 
     .hud-voice-btn {
@@ -474,7 +505,7 @@
       width: 100%;
       max-width: 1540px;
       display: grid;
-      grid-template-columns: 808px 1fr;
+      grid-template-columns: minmax(0, 808px) minmax(0, 1fr);
       gap: 24px;
       align-items: start;
     }
@@ -490,7 +521,9 @@
        LEFT COLUMN: Senior's Echo Show (768x480)
        ===================================================================== */
     .senior-column {
-      width: 808px;
+      width: 100%;
+      max-width: 808px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -516,10 +549,12 @@
 
     /* Hardware Echo Show Chassis */
     .echo-chassis {
+      width: 100%;
+      min-width: 0;
       background: linear-gradient(145deg, #182531, #0E161F);
       border: 1px solid var(--border-medium);
       border-radius: var(--radius-xl);
-      padding: 19px;
+      padding: clamp(8px, 2vw, 19px);
       box-shadow: var(--shadow-lg);
       position: relative;
     }
@@ -538,8 +573,11 @@
 
     /* Screen Viewport: STRICT 768x480 Echo Show 8 Landscape */
     .screen-viewport {
-      width: 768px;
-      height: 480px;
+      width: 100%;
+      max-width: 768px;
+      height: auto;
+      aspect-ratio: 8 / 5;
+      min-width: 0;
       background: var(--screen-bg);
       border-radius: var(--radius-md);
       overflow: hidden;
@@ -1515,6 +1553,15 @@
       display: block;
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
     /* =========================================================================
        APP SHELL & TOP-LEVEL NAVIGATION
        ========================================================================= */
@@ -1729,8 +1776,14 @@
         max-width: 100%;
       }
       .echo-chassis {
+        width: 100%;
         max-width: 100%;
-        overflow-x: auto;
+        overflow: hidden;
+      }
+      .screen-viewport {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 8 / 5;
       }
     }
 
@@ -4213,32 +4266,41 @@
         try {
           res = await fetch(healthUrl, { method: 'GET' });
         } catch(e) {
-          // If unauthenticated /health route is unreachable, check /mcp with bearer token
-          const token = getSetting('token') || 'janus-demo-senior-margaret';
-          res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json, text/event-stream',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 'health_check',
-              method: 'tools/list',
-              params: {}
-            })
-          });
+          // The health route may not be reachable; probe the configured MCP endpoint.
+          res = null;
         }
 
-        if (res.status === 401) {
+        if (!res || !res.ok) {
+          const token = getSetting('token');
+          try {
+            const probeHeaders = {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json, text/event-stream',
+              'MCP-Protocol-Version': '2025-11-25'
+            };
+            if (token) probeHeaders.Authorization = `Bearer ${token}`;
+            const probe = await fetch(endpoint, {
+              method: 'POST',
+              headers: probeHeaders,
+              body: JSON.stringify({
+                jsonrpc: '2.0', id: 'health_check', method: 'tools/list', params: {}
+              })
+            });
+            if (probe.ok) res = probe;
+            else if (!res || (res.status === 404 || res.status === 405)) res = probe;
+          } catch(e) {
+            if (!res) throw e;
+          }
+        }
+
+        if (res && res.status === 401) {
           if (serverPill) {
             serverPill.className = 'hud-chip hud-status-offline';
             serverPill.style.borderColor = 'var(--status-pending)';
             serverPill.style.color = 'var(--status-pending)';
           }
           if (serverText) serverText.textContent = 'HTTP 401 (Auth Required)';
-        } else if (res.ok) {
+        } else if (res && res.ok) {
           if (serverPill) {
             serverPill.className = 'hud-chip hud-status-online';
             serverPill.style.borderColor = '';
@@ -4252,7 +4314,8 @@
             serverPill.style.borderColor = 'var(--status-error)';
             serverPill.style.color = 'var(--status-error)';
           }
-          if (serverText) serverText.textContent = `Server: HTTP ${res.status}`;
+          if (serverText) serverText.textContent = `Server: HTTP ${res ? res.status : 'Unavailable'}`;
+          updateServerErrorBanner(true, `MCP endpoint health check failed (${res ? `HTTP ${res.status}` : 'no response'}).`);
         }
       } catch (err) {
         if (serverPill) {
@@ -4267,7 +4330,10 @@
 
     // State Machine
     let pendingTx = null; // { transactionId, actionType, seniorId, details, payload }
-    let lastKnownEventsCount = -1;
+    let lastKnownEventsSignature = '';
+    let caregiverPollSequence = 0;
+    let caregiverPollInFlight = false;
+    let caregiverPollQueued = false;
     let autoPollTimer = null;
     let isListening = false;
     let speechRecognition = null;
@@ -4324,10 +4390,16 @@
       const role = ROLES[roleKey];
       if (!role) return;
 
-      currentRoleKey = roleKey;
+      // A role switch must not silently discard a staged proposal. The server is
+      // authoritative for transaction state; cancel explicitly before switching.
+      if (pendingTx) {
+        setAlexaSpeaking(false, 'Please cancel or resolve the pending proposal before switching roles.');
+        return;
+      }
 
-      // Switching clears pendingTx
-      pendingTx = null;
+      currentRoleKey = roleKey;
+      caregiverPollSequence += 1; // invalidate any in-flight response for the old role
+      lastKnownEventsSignature = '';
       updatePendingProposalBanner();
 
       // Update button active state
@@ -4374,7 +4446,7 @@
           role: role.badge,
           senior_id: role.seniorId,
           token: role.token,
-          pending_transaction: "CLEARED"
+          pending_transaction: "LOCAL_NONE; SERVER_STATE_NOT_RESET"
         },
         httpStatus: "ROLE READY",
         responseJson: {
@@ -4604,6 +4676,8 @@
     }
 
     function onSettingChange() {
+      caregiverPollSequence += 1;
+      lastKnownEventsSignature = '';
       const name = getSetting('senior_name');
       document.getElementById('senior-display-name').textContent = name;
       document.getElementById('cg-senior-header').textContent = `${name} — Care Ledger`;
@@ -4832,8 +4906,20 @@
           handledLocally: true,
           routerMs,
           cancelled: true,
-          ruleName: "Rule 2: Cancellation Intent -> Handled locally (Discard Proposal / 0 Writes)",
-          message: hadTx ? "Action cancelled. Nothing was written." : "Cancelled."
+          ruleName: "Rule 2: Cancellation Intent -> Local dismissal (no confirmation request sent)",
+          message: hadTx ? "Proposal dismissed in this UI. No confirmation was sent; server-side proposal expiry is controlled by the backend." : "Cancelled."
+        };
+      }
+
+      // Do not let a new action overwrite an unresolved two-step proposal.
+      else if (pendingTx) {
+        const routerMs = performance.now() - t0;
+        return {
+          handledLocally: true,
+          routerMs,
+          clarifying: true,
+          ruleName: "Pending Proposal Guard: resolve the existing proposal first",
+          message: "There is already an action waiting. Say yes to confirm it or no to dismiss it before starting another action."
         };
       }
 
@@ -4926,6 +5012,25 @@
       return decision;
     }
 
+    // Parse either a JSON MCP response or JSON-RPC messages carried by SSE.
+    async function parseMCPResponse(response) {
+      const body = await response.text();
+      if (!body.trim()) return {};
+      try { return JSON.parse(body); } catch (_) { /* Try SSE frames below. */ }
+      const contentType = (response.headers.get('content-type') || '').toLowerCase();
+      if (contentType.includes('text/event-stream') || body.includes('data:')) {
+        const messages = [];
+        for (const line of body.split(/\r?\n/)) {
+          if (!line.startsWith('data:')) continue;
+          const value = line.slice(5).trim();
+          if (!value || value === '[DONE]') continue;
+          try { messages.push(JSON.parse(value)); } catch (_) { /* Ignore non-JSON SSE data. */ }
+        }
+        if (messages.length) return messages[messages.length - 1];
+      }
+      throw new Error('The MCP server returned an unreadable JSON/SSE response.');
+    }
+
     // =========================================================================
     // DISPATCH MCP TOOL OVER STREAMABLE HTTP (MCP Spec 2025-11-25)
     // =========================================================================
@@ -4957,6 +5062,7 @@
       }
 
       const startTime = performance.now();
+      const lightbar = document.getElementById('alexa-lightbar');
       if (!options.silent && canSpeak) {
         setAlexaSpeaking(true, `Connecting to Janus FastMCP (${toolName})...`);
       }
@@ -4964,13 +5070,13 @@
       try {
         const headers = {
           'Content-Type': 'application/json',
+          'Accept': 'application/json, text/event-stream',
           'MCP-Protocol-Version': '2025-11-25'
         };
         if (!options.noAuth && token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const lightbar = document.getElementById('alexa-lightbar');
         if (lightbar) lightbar.classList.add('active');
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -4995,10 +5101,10 @@
           try {
             errJson = await response.json();
             errDetail = errJson.detail || errDetail;
-            logDebug(payload, errJson, elapsedMs, headers);
+            logDebug(payload, errJson, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
           } catch(e) {
             errJson = { status: 401, error: errDetail };
-            logDebug(payload, errJson, elapsedMs, headers);
+            logDebug(payload, errJson, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
           }
 
           if (options.traceContext) {
@@ -5022,6 +5128,34 @@
           return errRes;
         }
 
+        if (!response.ok) {
+          let errorBody = { status: response.status, error: `HTTP ${response.status}` };
+          try { errorBody = await parseMCPResponse(response); } catch (_) { /* Keep status fallback. */ }
+          const message = errorBody.detail || errorBody.message || errorBody.error || `HTTP ${response.status}`;
+          updateServerErrorBanner(true, `MCP request failed: ${message}`);
+          const failedPill = document.getElementById('hud-server-pill');
+          if (failedPill) {
+            failedPill.className = 'hud-chip hud-status-offline';
+            failedPill.style.borderColor = 'var(--status-error)';
+            failedPill.style.color = 'var(--status-error)';
+          }
+          const failedText = document.getElementById('hud-server-text');
+          if (failedText) failedText.textContent = `Server: HTTP ${response.status}`;
+          const failedResult = { status: 'error', error_code: `HTTP_${response.status}`, message, database_writes: 0 };
+          logDebug(payload, errorBody, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
+          if (options.traceContext) recordTraceTurn({
+            utterance: options.traceContext.utterance,
+            ruleName: options.traceContext.ruleName,
+            mcpPayload: payload,
+            httpStatus: `HTTP ${response.status}`,
+            responseJson: errorBody,
+            isError: true,
+            elapsedMs
+          });
+          if (options.onSuccess) options.onSuccess(failedResult);
+          return failedResult;
+        }
+
         const serverPill = document.getElementById('hud-server-pill');
         if (serverPill) {
           serverPill.className = 'hud-chip hud-status-online';
@@ -5031,8 +5165,8 @@
         updateServerErrorBanner(false);
         document.getElementById('hud-server-text').textContent = 'Server: Online';
 
-        const data = await response.json();
-        logDebug(payload, data, elapsedMs, headers);
+        const data = await parseMCPResponse(response);
+        logDebug(payload, data, elapsedMs, { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : undefined });
 
         if (data.error) {
           const errMsg = data.error.message || 'JSON-RPC Error';
@@ -5115,11 +5249,12 @@
       } catch (err) {
         if (lightbar) lightbar.classList.remove('active');
         const elapsedMs = Math.round(performance.now() - startTime);
-        document.getElementById('hud-http-ms').textContent = `${elapsedMs} ms`;
-        document.getElementById('hud-server-pill').className = 'hud-chip';
-        document.getElementById('hud-server-pill').style.borderColor = 'var(--accent-rose)';
-        document.getElementById('hud-server-pill').style.color = 'var(--accent-rose)';
-        document.getElementById('hud-server-text').textContent = 'Connection Error';
+        const httpMsEl = document.getElementById('hud-http-ms');
+        if (httpMsEl) httpMsEl.textContent = `${elapsedMs} ms`;
+        const errorPill = document.getElementById('hud-server-pill');
+        if (errorPill) { errorPill.className = 'hud-chip hud-status-offline'; errorPill.style.borderColor = 'var(--status-error)'; errorPill.style.color = 'var(--status-error)'; }
+        const errorText = document.getElementById('hud-server-text');
+        if (errorText) errorText.textContent = 'Connection Error';
 
         console.error('MCP Tool Call Error:', err);
         updateServerErrorBanner(true, `MCP Tool Call Error: ${err.message || 'Connection failure'}`);
@@ -5140,7 +5275,8 @@
           renderErrorCard(toolName, err.message);
           setAlexaSpeaking(false, `Request failed: ${err.message}`);
         }
-        logDebug(payload, { error: err.message }, elapsedMs, { Authorization: `Bearer ${token}` });
+        logDebug(payload, { error: err.message }, elapsedMs, { Authorization: token ? '[REDACTED]' : undefined });
+        return { status: 'error', error_code: 'TRANSPORT_ERROR', message: err.message || 'Connection failure', database_writes: 0 };
       }
     }
 
@@ -5443,13 +5579,13 @@
       pendingTx = null;
       updatePendingProposalBanner();
       dismissToDefaultSummary();
-      setAlexaSpeaking(false, "Action cancelled. Nothing was written.");
+      setAlexaSpeaking(false, "Proposal dismissed in this UI. No confirmation was sent; server-side proposal expiry is controlled by the backend.");
       recordTraceTurn({
         utterance: `[Card Action] Cancel ("No") proposal: ${prevId || 'none'}`,
-        ruleName: "Rule 2: Cancellation Intent -> Handled locally (Discard Proposal / 0 Writes)",
-        mcpPayload: { info: "Proposal discarded locally with 0 database writes" },
+        ruleName: "Rule 2: Local proposal dismissal (no server cancellation tool is called)",
+        mcpPayload: { info: "Proposal dismissed in this UI; no confirmation request was sent" },
         httpStatus: "LOCAL (0 RTT)",
-        responseJson: { status: "CANCELLED", database_writes: 0 },
+        responseJson: { status: "DISMISSED_LOCALLY", database_writes: 0, server_proposal_cancelled: false },
         isError: false,
         elapsedMs: 0
       });
@@ -5481,9 +5617,10 @@
           httpStatus: "LOCAL (0 RTT)",
           responseJson: {
             handled_locally: true,
-            status: routing.cancelled ? "CANCELLED" : (routing.clarifying ? "CLARIFY" : "NO_PENDING_TX"),
+            status: routing.cancelled ? "DISMISSED_LOCALLY" : (routing.clarifying ? "CLARIFY" : "NO_PENDING_TX"),
             message: routing.message,
-            database_writes: 0
+            database_writes: 0,
+            server_proposal_cancelled: false
           },
           isError: false,
           elapsedMs: 0
@@ -5514,26 +5651,43 @@
     // CAREGIVER DASHBOARD POLLING & VISUAL SYNCHRONIZATION
     // =========================================================================
     async function pollCaregiverSummary(isImmediate = false) {
+      if (caregiverPollInFlight) {
+        if (isImmediate) caregiverPollQueued = true;
+        return;
+      }
+      caregiverPollInFlight = true;
+      const requestSequence = ++caregiverPollSequence;
+      const requestRoleKey = currentRoleKey;
       const seniorId = getSetting('senior_id');
       let token = getSetting('token');
-      // For remote caregiver dashboard sync, use caregiver Sarah for Margaret and David for Arthur
+      // Demo role mapping only. The server must independently authorize the token/senior pair.
       if (token === 'janus-demo-senior-margaret' || token.includes('senior')) {
         token = seniorId === 'arthur_02' ? 'janus-demo-caregiver-david' : 'janus-demo-caregiver-sarah';
       }
 
-      await callMCPTool(
-        'get_caregiver_summary',
-        { senior_id: seniorId },
-        {
-          silent: true,
-          speak: false,
-          customToken: token,
-          onSuccess: (summaryData) => {
-            if (!summaryData || summaryData.status === 'error') return;
-            renderCaregiverDashboard(summaryData, isImmediate);
+      try {
+        await callMCPTool(
+          'get_caregiver_summary',
+          { senior_id: seniorId },
+          {
+            silent: true,
+            speak: false,
+            customToken: token,
+            onSuccess: (summaryData) => {
+              // Discard responses that belong to an old role or old senior selection.
+              if (requestSequence !== caregiverPollSequence || requestRoleKey !== currentRoleKey || seniorId !== getSetting('senior_id')) return;
+              if (!summaryData || summaryData.status === 'error') return;
+              renderCaregiverDashboard(summaryData, isImmediate);
+            }
           }
+        );
+      } finally {
+        caregiverPollInFlight = false;
+        if (caregiverPollQueued) {
+          caregiverPollQueued = false;
+          void pollCaregiverSummary(true);
         }
-      );
+      }
     }
 
     function renderCaregiverDashboard(data, forceFlash = false) {
@@ -5541,12 +5695,14 @@
       const events = data.events || [];
       const slots = data.schedule_slots || [];
 
-      // Detect changes to flash live sync banner
-      const eventsCount = events.length;
-      const countChanged = lastKnownEventsCount !== -1 && eventsCount !== lastKnownEventsCount;
-      lastKnownEventsCount = eventsCount;
+      // Detect additions, removals, and in-place event updates (not only count changes).
+      let eventsSignature;
+      try { eventsSignature = JSON.stringify(events); }
+      catch (_) { eventsSignature = String(events.length); }
+      const eventsChanged = lastKnownEventsSignature !== '' && eventsSignature !== lastKnownEventsSignature;
+      lastKnownEventsSignature = eventsSignature;
 
-      if (countChanged || forceFlash) {
+      if (eventsChanged || forceFlash) {
         triggerSyncFlash();
       }
 
@@ -5770,8 +5926,8 @@
         senior_id: 'margaret_01',
         action_type: 'shift_handoff',
         payload: {
-          departing_caregiver: 'David',
-          incoming_caregiver: 'Sarah',
+          departing_caregiver: getSetting('departing'),
+          incoming_caregiver: getSetting('incoming'),
           handoff_notes: 'Shift completed'
         },
         confirm: false

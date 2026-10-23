@@ -16,7 +16,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional,Tuple
 from zoneinfo import ZoneInfo
 
-from janus.errors import ErrorCode, InvalidCategoryError
+from janus.errors import AuditWriteError, InvalidCategoryError, SafetyBlockedError
+from janus.safety import SafetyOutcome, assess_safety
+from janus.auth import AuthError, get_current_identity, check_senior_access, check_role_access
 
 # Default database location in ./data/janus.db relative to repository root
 DEFAULT_DB_PATH = os.environ.get(
@@ -97,6 +99,51 @@ def compute_audit_hash(prev_hash: str, row_data: Dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _append_audit_row_in_tx(
+    cursor: sqlite3.Cursor,
+    ts: str,
+    actor: str,
+    role: str,
+    tool: str,
+    senior_id: Optional[str],
+    transaction_id: Optional[str],
+    outcome: str,
+    reason_code: Optional[str] = None,
+    mutation_committed: bool = False,
+) -> str:
+    """Append a cryptographic audit log row within an existing active transaction.
+
+    Returns the computed new_hash.
+    """
+    cursor.execute("SELECT id, hash FROM audit_log ORDER BY id DESC LIMIT 1")
+    last_audit = cursor.fetchone()
+    prev_hash = last_audit["hash"] if last_audit else ("0" * 64)
+    last_id = last_audit["id"] if last_audit else 0
+    audit_id = last_id + 1
+
+    audit_row = {
+        "actor": actor,
+        "id": audit_id,
+        "mutation_committed": bool(mutation_committed),
+        "outcome": outcome,
+        "reason_code": reason_code,
+        "role": role,
+        "senior_id": senior_id,
+        "tool": tool,
+        "transaction_id": transaction_id,
+        "ts": ts,
+    }
+    new_hash = compute_audit_hash(prev_hash, audit_row)
+    cursor.execute(
+        """
+        INSERT INTO audit_log (ts, actor, role, tool, senior_id, transaction_id, outcome, reason_code, mutation_committed, prev_hash, hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (ts, actor, role, tool, senior_id, transaction_id, outcome, reason_code, 1 if mutation_committed else 0, prev_hash, new_hash),
+    )
+    return new_hash
+
+
 def record_audit_entry(
     actor: str,
     role: str,
@@ -104,6 +151,8 @@ def record_audit_entry(
     senior_id: Optional[str],
     transaction_id: Optional[str],
     outcome: str,
+    reason_code: Optional[str] = None,
+    mutation_committed: bool = False,
     db_path: Optional[str] = None,
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
@@ -112,35 +161,23 @@ def record_audit_entry(
     try:
         with conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT id, hash FROM audit_log ORDER BY id DESC LIMIT 1")
-            last_row = cursor.fetchone()
-            prev_hash = last_row["hash"] if last_row else ("0" * 64)
-            last_id = last_row["id"] if last_row else 0
-            next_id = last_id + 1
-
-            now_dt = get_current_time(now)
-            ts = format_iso(now_dt)
-
-            row_data = {
-                "actor": actor,
-                "id": next_id,
-                "outcome": outcome,
-                "role": role,
-                "senior_id": senior_id,
-                "tool": tool,
-                "transaction_id": transaction_id,
-                "ts": ts,
-            }
-            new_hash = compute_audit_hash(prev_hash, row_data)
-
-            cursor.execute(
-                """
-                INSERT INTO audit_log (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, new_hash),
+            new_hash = _append_audit_row_in_tx(
+                cursor=cursor,
+                ts=format_iso(get_current_time(now)),
+                actor=actor,
+                role=role,
+                tool=tool,
+                senior_id=senior_id,
+                transaction_id=transaction_id,
+                outcome=outcome,
+                reason_code=reason_code,
+                mutation_committed=mutation_committed,
             )
-            return {"id": cursor.lastrowid, "hash": new_hash, "prev_hash": prev_hash}
+            return {"id": cursor.lastrowid, "hash": new_hash}
+    except Exception as e:
+        if isinstance(e, AuditWriteError):
+            raise
+        raise AuditWriteError("Cryptographic audit logging failed. Operation cannot proceed without audit integrity.") from None
     finally:
         conn.close()
 
@@ -329,6 +366,8 @@ def init_db(db_path: Optional[str] = None) -> None:
                     senior_id TEXT,
                     transaction_id TEXT,
                     outcome TEXT NOT NULL,
+                    reason_code TEXT,
+                    mutation_committed BOOLEAN NOT NULL DEFAULT 0,
                     prev_hash TEXT NOT NULL,
                     hash TEXT NOT NULL
                 );
@@ -350,6 +389,12 @@ def init_db(db_path: Optional[str] = None) -> None:
 
                 CREATE INDEX IF NOT EXISTS idx_audit_time
                 ON audit_log (ts);
+
+                CREATE INDEX IF NOT EXISTS idx_audit_outcome
+                ON audit_log (outcome);
+
+                CREATE INDEX IF NOT EXISTS idx_audit_tx
+                ON audit_log (transaction_id);
                 """
             )
 
@@ -359,6 +404,14 @@ def init_db(db_path: Optional[str] = None) -> None:
             cols = [r["name"] for r in cursor.fetchall()]
             if "tz" not in cols:
                 cursor.execute("ALTER TABLE seniors ADD COLUMN tz TEXT NOT NULL DEFAULT 'America/New_York'")
+
+            # Migration: check if 'reason_code' and 'mutation_committed' columns exist on audit_log
+            cursor.execute("PRAGMA table_info(audit_log)")
+            audit_cols = [r["name"] for r in cursor.fetchall()]
+            if "reason_code" not in audit_cols:
+                cursor.execute("ALTER TABLE audit_log ADD COLUMN reason_code TEXT")
+            if "mutation_committed" not in audit_cols:
+                cursor.execute("ALTER TABLE audit_log ADD COLUMN mutation_committed BOOLEAN NOT NULL DEFAULT 0")
 
             # Seed default senior profile for Margaret Vance if empty
             cursor.execute("SELECT id FROM seniors WHERE id = ?", ("margaret_01",))
@@ -592,6 +645,22 @@ def log_routine_event(
     Returns the inserted event summary with ID and timestamp.
     """
     ensure_senior_exists(senior_id, db_path=db_path)
+    combined_text = f"{value or ''} {notes or ''}".strip()
+    safety_res = assess_safety(combined_text, category=routine_type)
+    if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+        record_audit_entry(
+            actor=logged_by,
+            role="caregiver" if "caregiver" in logged_by else "senior",
+            tool="log_routine_event",
+            senior_id=senior_id,
+            transaction_id=None,
+            outcome=f"BLOCKED_{safety_res.outcome.value}",
+            reason_code=safety_res.matched_rule or safety_res.outcome.value,
+            mutation_committed=False,
+            db_path=db_path,
+        )
+        raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
+
     ts = timestamp or datetime.now(timezone.utc).isoformat()
 
     conn = get_connection(db_path)
@@ -978,6 +1047,21 @@ def record_shift_handoff(
 ) -> Dict[str, Any]:
     """Record a verified caregiver shift handoff in the SQLite ledger."""
     ensure_senior_exists(senior_id, db_path=db_path)
+    safety_res = assess_safety(handoff_notes, category="wellness")
+    if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+        record_audit_entry(
+            actor=departing_caregiver,
+            role="caregiver",
+            tool="record_shift_handoff",
+            senior_id=senior_id,
+            transaction_id=None,
+            outcome=f"BLOCKED_{safety_res.outcome.value}",
+            reason_code=safety_res.matched_rule or safety_res.outcome.value,
+            mutation_committed=False,
+            db_path=db_path,
+        )
+        raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
+
     snapshot_json = json.dumps(routine_snapshot or {})
     ts = datetime.now(timezone.utc).isoformat()
 
@@ -1068,6 +1152,52 @@ def create_proposal(
     Writes NOTHING to routine_logs or shift_handoffs tables.
     """
     ensure_senior_exists(senior_id, db_path=db_path)
+
+    identity = get_current_identity()
+    if identity and not check_senior_access(identity, senior_id):
+        raise AuthError(f"Access to senior '{senior_id}' is forbidden for actor '{identity.get('actor', 'anonymous')}'.")
+
+    # Medical safety policy guard before creating any proposal
+    if action_type == "routine_log":
+        text_to_check = payload.get("details") or payload.get("notes") or ""
+        cat_to_check = payload.get("category") or payload.get("routine_type")
+        safety_res = assess_safety(text_to_check, category=cat_to_check)
+        if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+            audit_actor = identity.get("actor", actor) if identity else actor
+            audit_role = identity.get("role", "caregiver" if "caregiver" in audit_actor else "senior") if identity else ("caregiver" if "caregiver" in audit_actor else "senior")
+            record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="create_proposal",
+                senior_id=senior_id,
+                transaction_id=None,
+                outcome=f"BLOCKED_{safety_res.outcome.value}",
+                reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                mutation_committed=False,
+                db_path=db_path,
+                now=now,
+            )
+            raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
+    elif action_type == "shift_handoff":
+        notes_to_check = payload.get("handoff_notes") or ""
+        safety_res = assess_safety(notes_to_check, category="wellness")
+        if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+            audit_actor = identity.get("actor", actor) if identity else actor
+            audit_role = identity.get("role", "caregiver") if identity else "caregiver"
+            record_audit_entry(
+                actor=audit_actor,
+                role=audit_role,
+                tool="create_proposal",
+                senior_id=senior_id,
+                transaction_id=None,
+                outcome=f"BLOCKED_{safety_res.outcome.value}",
+                reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                mutation_committed=False,
+                db_path=db_path,
+                now=now,
+            )
+            raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
+
     now_dt = get_current_time(now)
     expires_dt = now_dt + timedelta(seconds=PROPOSAL_TTL_SECONDS)
 
@@ -1202,7 +1332,214 @@ def commit_proposal(
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
 
-            # Step 1: Atomic state transition from 'pending' -> 'committed'
+            # Step 1: Diagnose proposal status and revalidate safety
+            cursor.execute(
+                """
+                SELECT transaction_id, senior_id, action_type, payload_json,
+                       actor, created_at, expires_at, status, committed_at, result_id
+                FROM proposals
+                WHERE transaction_id = ?
+                """,
+                (transaction_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_NOT_FOUND",
+                    "message": f"Proposal '{transaction_id}' does not exist.",
+                    "database_writes": 0,
+                }
+
+            senior_id = row["senior_id"]
+            action_type = row["action_type"]
+            actor = row["actor"]
+
+            identity = get_current_identity()
+            if identity:
+                if not check_senior_access(identity, senior_id):
+                    return {
+                        "status": "error",
+                        "error_code": "FORBIDDEN",
+                        "message": f"Access to senior '{senior_id}' is forbidden for actor '{identity.get('actor', 'anonymous')}'.",
+                        "database_writes": 0,
+                        "transaction_id": transaction_id,
+                    }
+                check_action = "confirm_handoff" if action_type == "shift_handoff" else "confirm_routine"
+                allowed, reason = check_role_access(identity, check_action, senior_id)
+                if not allowed:
+                    return {
+                        "status": "error",
+                        "error_code": "FORBIDDEN",
+                        "message": reason,
+                        "database_writes": 0,
+                        "transaction_id": transaction_id,
+                    }
+
+            status = row["status"]
+            expires_at = row["expires_at"]
+
+            if status == "committed":
+                return {
+                    "status": "ALREADY_COMMITTED",
+                    "transaction_id": transaction_id,
+                    "action_type": row["action_type"],
+                    "senior_id": row["senior_id"],
+                    "result_id": row["result_id"],
+                    "database_writes": 0,
+                    "message": f"Proposal '{transaction_id}' has already been committed.",
+                }
+            elif status == "cancelled":
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role="caregiver" if "caregiver" in actor else "senior",
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome="CONFIRMATION_FAILED",
+                    reason_code="PROPOSAL_CANCELLED",
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_CANCELLED",
+                    "transaction_id": transaction_id,
+                    "message": f"Proposal '{transaction_id}' was cancelled.",
+                    "database_writes": 0,
+                }
+            elif status == "blocked":
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role="caregiver" if "caregiver" in actor else "senior",
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome="CONFIRMATION_FAILED",
+                    reason_code="PROPOSAL_BLOCKED",
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_BLOCKED",
+                    "transaction_id": transaction_id,
+                    "message": f"Proposal '{transaction_id}' was blocked by medical safety policy.",
+                    "database_writes": 0,
+                }
+            elif status == "pending" and expires_at <= now_iso:
+                cursor.execute(
+                    "UPDATE proposals SET status = 'expired' WHERE transaction_id = ?",
+                    (transaction_id,),
+                )
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role="caregiver" if "caregiver" in actor else "senior",
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome="CONFIRMATION_FAILED",
+                    reason_code="PROPOSAL_EXPIRED",
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_EXPIRED",
+                    "transaction_id": transaction_id,
+                    "message": f"Proposal '{transaction_id}' has expired.",
+                    "database_writes": 0,
+                }
+            elif status == "expired":
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role="caregiver" if "caregiver" in actor else "senior",
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome="CONFIRMATION_FAILED",
+                    reason_code="PROPOSAL_EXPIRED",
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_EXPIRED",
+                    "transaction_id": transaction_id,
+                    "message": f"Proposal '{transaction_id}' has expired.",
+                    "database_writes": 0,
+                }
+            elif status != "pending":
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role="caregiver" if "caregiver" in actor else "senior",
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome="CONFIRMATION_FAILED",
+                    reason_code=f"PROPOSAL_{status.upper()}",
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": f"PROPOSAL_{status.upper()}",
+                    "transaction_id": transaction_id,
+                    "message": f"Proposal '{transaction_id}' is in status '{status}'.",
+                    "database_writes": 0,
+                }
+
+            # Step 2: Revalidate stored proposal details against safety policy before commit
+            prop = dict(row)
+            payload = json.loads(prop["payload_json"])
+            senior_id = prop["senior_id"]
+            action_type = prop["action_type"]
+            actor = prop["actor"]
+
+            if action_type == "routine_log":
+                text_to_check = payload.get("details") or payload.get("notes") or ""
+                cat_to_check = payload.get("category") or payload.get("routine_type")
+            elif action_type == "shift_handoff":
+                text_to_check = payload.get("handoff_notes") or ""
+                cat_to_check = "wellness"
+            else:
+                text_to_check = ""
+                cat_to_check = None
+
+            safety_res = assess_safety(text_to_check, category=cat_to_check)
+            if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+                # Mark proposal as blocked so it can never be committed
+                cursor.execute(
+                    "UPDATE proposals SET status = 'blocked' WHERE transaction_id = ?",
+                    (transaction_id,),
+                )
+                audit_role = "caregiver" if "caregiver" in actor else "senior"
+                _append_audit_row_in_tx(
+                    cursor=cursor,
+                    ts=now_iso,
+                    actor=actor,
+                    role=audit_role,
+                    tool="verify_routine_state",
+                    senior_id=senior_id,
+                    transaction_id=transaction_id,
+                    outcome=f"BLOCKED_{safety_res.outcome.value}",
+                    reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                    mutation_committed=False,
+                )
+                return {
+                    "status": "error",
+                    "error_code": safety_res.outcome.value,
+                    "message": safety_res.guidance,
+                    "database_writes": 0,
+                    "transaction_id": transaction_id,
+                }
+
+            # Step 3: Safety revalidation passed! Atomically transition from 'pending' -> 'committed'
             cursor.execute(
                 """
                 UPDATE proposals
@@ -1211,91 +1548,13 @@ def commit_proposal(
                 """,
                 (now_iso, transaction_id, now_iso),
             )
-
             if cursor.rowcount == 0:
-                # Did not transition: diagnose status
-                cursor.execute(
-                    """
-                    SELECT transaction_id, senior_id, action_type, payload_json,
-                           actor, created_at, expires_at, status, committed_at, result_id
-                    FROM proposals
-                    WHERE transaction_id = ?
-                    """,
-                    (transaction_id,),
-                )
-                row = cursor.fetchone()
-                if not row:
-                    return {
-                        "status": "error",
-                        "error_code": "PROPOSAL_NOT_FOUND",
-                        "message": f"Proposal '{transaction_id}' does not exist.",
-                        "database_writes": 0,
-                    }
-
-                status = row["status"]
-                expires_at = row["expires_at"]
-
-                if status == "committed":
-                    return {
-                        "status": "ALREADY_COMMITTED",
-                        "transaction_id": transaction_id,
-                        "action_type": row["action_type"],
-                        "senior_id": row["senior_id"],
-                        "result_id": row["result_id"],
-                        "database_writes": 0,
-                        "message": f"Proposal '{transaction_id}' has already been committed.",
-                    }
-                elif status == "cancelled":
-                    return {
-                        "status": "error",
-                        "error_code": "PROPOSAL_CANCELLED",
-                        "transaction_id": transaction_id,
-                        "message": f"Proposal '{transaction_id}' was cancelled.",
-                        "database_writes": 0,
-                    }
-                elif status == "pending" and expires_at <= now_iso:
-                    cursor.execute(
-                        "UPDATE proposals SET status = 'expired' WHERE transaction_id = ?",
-                        (transaction_id,),
-                    )
-                    return {
-                        "status": "error",
-                        "error_code": "PROPOSAL_EXPIRED",
-                        "transaction_id": transaction_id,
-                        "message": f"Proposal '{transaction_id}' has expired.",
-                        "database_writes": 0,
-                    }
-                elif status == "expired":
-                    return {
-                        "status": "error",
-                        "error_code": "PROPOSAL_EXPIRED",
-                        "transaction_id": transaction_id,
-                        "message": f"Proposal '{transaction_id}' has expired.",
-                        "database_writes": 0,
-                    }
-                else:
-                    return {
-                        "status": "error",
-                        "error_code": f"PROPOSAL_{status.upper()}",
-                        "transaction_id": transaction_id,
-                        "message": f"Proposal '{transaction_id}' is in status '{status}'.",
-                        "database_writes": 0,
-                    }
-
-            # Step 2: Successfully transitioned: insert into target table in same transaction
-            cursor.execute(
-                """
-                SELECT transaction_id, senior_id, action_type, payload_json, actor
-                FROM proposals
-                WHERE transaction_id = ?
-                """,
-                (transaction_id,),
-            )
-            prop = dict(cursor.fetchone())
-            payload = json.loads(prop["payload_json"])
-            senior_id = prop["senior_id"]
-            action_type = prop["action_type"]
-            actor = prop["actor"]
+                return {
+                    "status": "error",
+                    "error_code": "PROPOSAL_STATE_CONFLICT",
+                    "message": "Proposal state transitioned concurrently.",
+                    "database_writes": 0,
+                }
 
             result_id = None
             committed_record: Dict[str, Any] = {}
@@ -1354,30 +1613,19 @@ def commit_proposal(
             )
 
             # Record tamper-evident audit log entry in same transaction
-            cursor.execute("SELECT id, hash FROM audit_log ORDER BY id DESC LIMIT 1")
-            last_audit = cursor.fetchone()
-            prev_hash = last_audit["hash"] if last_audit else ("0" * 64)
-            last_id = last_audit["id"] if last_audit else 0
-            audit_id = last_id + 1
-
-            audit_role = "caregiver" if "caregiver" in actor else "senior"
-            audit_row = {
-                "actor": actor,
-                "id": audit_id,
-                "outcome": "COMMITTED",
-                "role": audit_role,
-                "senior_id": senior_id,
-                "tool": "verify_routine_state",
-                "transaction_id": transaction_id,
-                "ts": now_iso,
-            }
-            new_audit_hash = compute_audit_hash(prev_hash, audit_row)
-            cursor.execute(
-                """
-                INSERT INTO audit_log (ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, hash)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (now_iso, actor, audit_role, "verify_routine_state", senior_id, transaction_id, "COMMITTED", prev_hash, new_audit_hash),
+            committing_actor = identity.get("actor") if (identity and identity.get("actor")) else actor
+            committing_role = identity.get("role") if (identity and identity.get("role")) else ("caregiver" if "caregiver" in committing_actor else "senior")
+            _append_audit_row_in_tx(
+                cursor=cursor,
+                ts=now_iso,
+                actor=committing_actor,
+                role=committing_role,
+                tool="verify_routine_state",
+                senior_id=senior_id,
+                transaction_id=transaction_id,
+                outcome="COMMITTED",
+                reason_code="ROUTINE_COMMITTED",
+                mutation_committed=True,
             )
 
         return {
@@ -1390,5 +1638,9 @@ def commit_proposal(
             "committed_record": committed_record,
             "timestamp": now_iso,
         }
+    except Exception as e:
+        if isinstance(e, AuditWriteError):
+            raise
+        raise AuditWriteError("Cryptographic audit logging failed during proposal commit.") from None
     finally:
         conn.close()

@@ -2,6 +2,10 @@
 # scripts/smoke.sh — End-to-end smoke test for Janus (ElderSync) FastMCP Server
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 echo "==================================================================="
 echo "Janus (ElderSync) — 3-Command Reviewer Smoke Test"
 echo "==================================================================="
