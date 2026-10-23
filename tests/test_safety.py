@@ -8,7 +8,6 @@ import pytest
 
 from janus.safety import (
     MAX_INPUT_LENGTH,
-    SafetyAssessment,
     SafetyOutcome,
     assess_safety,
     is_routine_allowed,

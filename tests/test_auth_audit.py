@@ -13,7 +13,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from janus import storage
 from janus.auth import (
-    DEMO_TOKEN,
     extract_bearer_token,
     verify_token,
     check_senior_access,
@@ -116,7 +115,7 @@ def test_verify_token_invalid_and_empty():
 
 def test_check_senior_access(monkeypatch):
     monkeypatch.setenv("JANUS_DEMO_MODE", "1")
-    from janus.auth import set_current_identity, current_identity
+    from janus.auth import current_identity
 
     # Empty token and empty context rejects
     current_identity.set(None)

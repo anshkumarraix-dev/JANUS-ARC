@@ -17,8 +17,7 @@ import asyncio
 import os
 import sys
 import tempfile
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from datetime import datetime, timezone
 
 import pytest
 from starlette.testclient import TestClient
@@ -29,14 +28,10 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from janus import storage
 from janus.auth import (
     Role,
-    check_role_access,
-    check_senior_access,
     current_identity,
     set_current_identity,
-    verify_token,
 )
 from janus.errors import ErrorCode
-from janus.gate import ConfirmationGate
 from janus.server import (
     flag_missed_routine,
     get_app,
