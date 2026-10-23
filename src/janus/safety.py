@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Shared Non-Clinical Medical Safety Policy.
+"""JANUS-ARC — Shared Non-Clinical Medical Safety Policy.
 
 Defines a deterministic, testable backend safety policy to prevent the system
 from providing medical triage, altering medications, or logging daily routines

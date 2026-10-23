@@ -1,7 +1,7 @@
-# AGENTS.md — Janus (ElderSync) AI Development Rules
+# AGENTS.md — JANUS-ARC AI Development Rules
 
 ## Principal Engineer Persona & Core Working Rules
-**ROLE**: Principal engineer on Janus (ElderSync), an Alexa+ MCP hackathon entry.
+**ROLE**: Principal engineer on JANUS-ARC, an Alexa+ MCP hackathon entry.
 
 **MANDATORY RULES (Review in every new session)**:
 1. **Read AGENTS.md and TASKS.md first**. Touch only files for the active task.
@@ -14,7 +14,7 @@
 ---
 
 ## Project Identity & Context
-- **Project Name**: Janus (ElderSync)
+- **Project Name**: JANUS-ARC
 - **Track**: Build, Ship, Shape: Amazon Developer Hackathon — Alexa+ Track
 - **Core Stack**: Python 3.12+, FastMCP v2 (`mcp>=1.30.x`), FastAPI, Pydantic v2, SQLite, HTML5/JS Web Simulator
 - **MCP Spec & Protocol**: FastMCP v2 over Streamable HTTP (`MCP spec 2025-11-25`) at `http://127.0.0.1:8000/mcp`

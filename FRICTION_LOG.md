@@ -1,7 +1,7 @@
 # FRICTION LOG — Alexa+ Track & MCP Developer Experience
 
 > **Hackathon Submission**: *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*  
-> **Project Name**: Janus (ElderSync) — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+  
+> **Project Name**: JANUS-ARC — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+  
 > **Repository**: [JANUS-ARC](https://github.com/anshkumarraix-dev/JANUS-ARC)  
 > **Architecture**: Self-hosted FastMCP v2 Server over Streamable HTTP (`MCP spec 2025-11-25`), local SQLite WAL storage, Echo Show 8 (768×480) Web Simulator.  
 > **Evaluation Scope**: Non-clinical elder daily living routines and caregiver shift handoffs. Zero cloud paid APIs or unverified device claims.

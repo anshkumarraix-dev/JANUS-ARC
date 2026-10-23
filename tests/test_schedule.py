@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Schedule, Timezone, and Missed Routine Tests.
+"""JANUS-ARC — Schedule, Timezone, and Missed Routine Tests.
 
 Verifies:
 1. Breakfast does not clear lunch or dinner (category slot window isolation).

@@ -1,6 +1,6 @@
-# ElderSync / Janus — Phased Implementation Roadmap (PLAN.md)
+# JANUS-ARC — Phased Implementation Roadmap (PLAN.md)
 
-This document outlines the phased build strategy for **Janus (ElderSync)** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
+This document outlines the phased build strategy for **JANUS-ARC** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
 
 ---
 
@@ -8,7 +8,7 @@ This document outlines the phased build strategy for **Janus (ElderSync)** for t
 
 ```mermaid
 gantt
-    title Janus (ElderSync) Implementation Roadmap
+    title JANUS-ARC Implementation Roadmap
     dateFormat  YYYY-MM-DD
     section Phase 1: Server Scaffold
     SQLite Persistence Layer (`storage.py`)        :active, p1_1, 2026-10-20, 1d

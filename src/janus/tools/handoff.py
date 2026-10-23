@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Caregiver Handoff & Confirmation Gate Schemas.
+"""JANUS-ARC — Caregiver Handoff & Confirmation Gate Schemas.
 
 Defines Pydantic v2 data models for caregiver shift handoffs, safety confirmation gate
 previews, atomic commits, and idempotent replay responses.

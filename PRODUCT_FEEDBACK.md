@@ -1,7 +1,7 @@
 # PRODUCT FEEDBACK QUESTIONNAIRE — Alexa+ & FastMCP
 
 > **Hackathon Submission**: *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*  
-> **Project Name**: Janus (ElderSync) — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+  
+> **Project Name**: JANUS-ARC — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+  
 > **Repository**: [JANUS-ARC](https://github.com/anshkumarraix-dev/JANUS-ARC)  
 > **Architecture & Track**: Self-hosted FastMCP v2 Server over Streamable HTTP (`MCP spec 2025-11-25`), SQLite WAL persistence, Echo Show 8 (768×480) Web Simulator.  
 > **AWS Integration Scope**: No AWS cloud runtime services (e.g., AWS Lambda, Amazon DynamoDB, Amazon Bedrock, or Boto3) were used; the system executes 100% locally with open-source Python and SQLite. *AWS Builder mini-challenge eligibility is explicitly not claimed.*
@@ -179,7 +179,7 @@
 ### 1.8 Amazon Alexa+ Track Developer Experience & Platform Tooling
 
 * **Role in Project**:  
-  The target hackathon track and host ecosystem for Janus (ElderSync).
+  The target hackathon track and host ecosystem for JANUS-ARC.
 * **What Worked Well**:  
   - **Adoption of Open Standards**: Embracing the Model Context Protocol (MCP) as the tool integration layer allows developers to build portable, standard-compliant servers rather than proprietary closed skills.
   - **Clear Hackathon Rules & FAQ**: The Devpost FAQ explicitly clarified that invite-only preview tools (such as the Category SDK) were not required for general developer submissions, leveling the playing field for open-source participants.

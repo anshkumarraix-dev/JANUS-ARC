@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Tools package."""
+"""JANUS-ARC — Tools package."""
 
 from .base import JanusBaseModel
 from .routine import (

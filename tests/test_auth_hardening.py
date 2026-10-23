@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Part 4 Authorization and Confirmation Hardening Tests.
+"""JANUS-ARC — Part 4 Authorization and Confirmation Hardening Tests.
 
 Regression and contract tests for:
 1. Missing and invalid credentials (HTTP ASGI middleware and direct context).

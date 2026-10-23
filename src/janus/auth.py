@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Authentication, Bearer Token Verification & Access Control.
+"""JANUS-ARC — Authentication, Bearer Token Verification & Access Control.
 
 Implements token validation, actor resolution, role-based access control,
 and HTTP Authorization header parsing for non-clinical eldercare operations.

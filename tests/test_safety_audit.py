@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Part 5 Safety Audit Logging Tests.
+"""JANUS-ARC — Part 5 Safety Audit Logging Tests.
 
 Comprehensive validation for:
 1. Safety policy denials (Emergency guidance, Medication blocked, Clarification required).

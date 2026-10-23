@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Contract & Latency Test Suite.
+"""JANUS-ARC — Contract & Latency Test Suite.
 
 Verifies:
 1. SQLite persistence and CRUD operations.

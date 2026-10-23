@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Two-Step Safety Confirmation Gate.
+"""JANUS-ARC — Two-Step Safety Confirmation Gate.
 
 Enforces the safety invariant:
 All write/state-mutating operations MUST require a two-step confirmation flow:

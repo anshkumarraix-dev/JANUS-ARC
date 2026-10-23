@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Web Simulator Integrity Test Suite.
+"""JANUS-ARC — Web Simulator Integrity Test Suite.
 
 Verifies:
 1. simulator/index.html exists and is non-empty.

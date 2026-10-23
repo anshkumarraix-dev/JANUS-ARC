@@ -1,4 +1,4 @@
-# Janus (ElderSync) MCP Server Dependencies
+# JANUS-ARC MCP Server Dependencies
 mcp>=1.30.0
 fastapi>=0.110.0
 uvicorn>=0.28.0

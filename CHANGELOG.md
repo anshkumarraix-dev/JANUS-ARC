@@ -1,6 +1,6 @@
-# Janus (ElderSync) — Agent Development & Execution Log
+# JANUS-ARC — Agent Development & Execution Log
 
-This file serves as the official audit trail and persistent append-only execution log for all AI agents working on the **Janus (ElderSync)** codebase.
+This file serves as the official audit trail and persistent append-only execution log for all AI agents working on the **JANUS-ARC** codebase.
 
 ---
 
@@ -28,6 +28,26 @@ After **every** codebase modification, file creation, instruction update, or con
 ---
 
 ## 📜 Change Log Entries
+### [2026-10-23 23:02:00 IST] - Rename Project Name from Janus (ElderSync) to JANUS-ARC Everywhere
+- **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini)
+- **Change Type**: Refactor & Branding Alignment
+- **Files Modified / Created**:
+  - `README.md`, `AGENTS.md`, `TASKS.md`, `pyproject.toml`, `requirements.txt`, `Dockerfile`, `PRODUCT_FEEDBACK.md`, `FRICTION_LOG.md`
+  - All documentation files under `docs/` (`DESIGN.md`, `PLAN.md`, `DECISION_LOG.md`, `GLOSSARY.md`, `LEARNINGS.md`, `DEMO.md`, `DEPLOY.md`)
+  - All test files under `tests/` (`test_janus.py`, `test_gate.py`, `test_schedule.py`, `test_simulator.py`, `test_auth_hardening.py`, `test_safety.py`, `test_safety_audit.py`, `test_safety_matrix.py`)
+  - All source files under `src/janus/` (`server.py`, `storage.py`, `auth.py`, `gate.py`, `safety.py`, `errors.py`, `audit.py`, `tools/`)
+  - All automation scripts under `scripts/` (`smoke.ps1`, `smoke.sh`, `tunnel.ps1`, `tunnel.sh`, `judge_check.py`)
+  - `simulator/index.html` (Title & Warm Mission Control header)
+- **Diff / Summary of Changes**:
+  - Replaced all occurrences of `Janus (ElderSync)`, `ElderSync / Janus`, and `JANUS (ELDERSYNC)` with unified project identifier `JANUS-ARC`.
+  - Replaced `janus-eldersync-mcp` service names and URLs with `janus-arc-mcp`.
+  - Verified 0 remaining occurrences of `eldersync` across the repository.
+- **Verification / Tests Passed**:
+  - Full pytest suite: 271 passed in 28.64s.
+  - Zero broken links or invalid anchors.
+- **Impact & Next Steps**:
+  - Unified project naming across all documentation, source docstrings, and submission assets.
+
 ### [2026-10-23 22:55:00 IST] - Complete PRODUCT_FEEDBACK.md and FRICTION_LOG.md for Hackathon Submission
 - **Agent / Engine**: Principal Engineer (Google Antigravity / Gemini)
 - **Change Type**: Documentation & Hackathon Deliverables

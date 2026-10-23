@@ -6,7 +6,7 @@ PORT="${JANUS_PORT:-8000}"
 TARGET_URL="http://127.0.0.1:${PORT}"
 
 echo "==================================================================="
-echo "Janus (ElderSync) — Cloudflare Quick-Tunnel Launcher"
+echo "JANUS-ARC — Cloudflare Quick-Tunnel Launcher"
 echo "==================================================================="
 
 # 1. Verify cloudflared installation

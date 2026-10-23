@@ -1,6 +1,6 @@
-# ElderSync / Janus — Live Task Tracker (TASKS.md)
+# JANUS-ARC — Live Task Tracker (TASKS.md)
 
-This document tracks all implementation, testing, and submission milestones for **Janus (ElderSync)** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
+This document tracks all implementation, testing, and submission milestones for **JANUS-ARC** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
 
 **Legend**:
 - `[x]` Completed

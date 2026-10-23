@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Structured Errors and Error Codes.
+"""JANUS-ARC — Structured Errors and Error Codes.
 
 Defines stable, protocol-level error codes and human-safe conversational messages
 for non-clinical eldercare operations.

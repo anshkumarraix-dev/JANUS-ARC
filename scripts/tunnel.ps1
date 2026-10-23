@@ -5,7 +5,7 @@ $port = if ($env:JANUS_PORT) { $env:JANUS_PORT } else { "8000" }
 $targetUrl = "http://127.0.0.1:$port"
 
 Write-Host "===================================================================" -ForegroundColor Cyan
-Write-Host "Janus (ElderSync) -- Cloudflare Quick-Tunnel Launcher (PowerShell)" -ForegroundColor Cyan
+Write-Host "JANUS-ARC -- Cloudflare Quick-Tunnel Launcher (PowerShell)" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
 
 # 1. Verify cloudflared installation

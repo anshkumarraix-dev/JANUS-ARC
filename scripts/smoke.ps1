@@ -1,4 +1,4 @@
-# scripts/smoke.ps1 -- End-to-end smoke test for Janus (ElderSync) FastMCP Server (PowerShell)
+# scripts/smoke.ps1 -- End-to-end smoke test for JANUS-ARC FastMCP Server (PowerShell)
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -10,7 +10,7 @@ if ($scriptDir) {
 }
 
 Write-Host "===================================================================" -ForegroundColor Cyan
-Write-Host "Janus (ElderSync) -- 3-Command Reviewer Smoke Test (PowerShell)" -ForegroundColor Cyan
+Write-Host "JANUS-ARC -- 3-Command Reviewer Smoke Test (PowerShell)" -ForegroundColor Cyan
 Write-Host "===================================================================" -ForegroundColor Cyan
 
 # 1. Determine Python executable

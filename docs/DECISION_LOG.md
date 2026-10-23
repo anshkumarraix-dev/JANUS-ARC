@@ -1,6 +1,6 @@
-# ElderSync / Janus — Architecture Decision Records (DECISION_LOG.md)
+# JANUS-ARC — Architecture Decision Records (DECISION_LOG.md)
 
-This log records significant architectural, technical, and design decisions made for **Janus (ElderSync)** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
+This log records significant architectural, technical, and design decisions made for **JANUS-ARC** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
 
 ---
 

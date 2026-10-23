@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — SQLite Persistence Layer.
+"""JANUS-ARC — SQLite Persistence Layer.
 
 Provides local, zero-dependency persistence for senior profiles, daily routine logs,
 and caregiver shift handoff records with sub-10ms query execution.

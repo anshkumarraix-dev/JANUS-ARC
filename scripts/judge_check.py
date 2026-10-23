@@ -2,7 +2,7 @@
 """scripts/judge_check.py -- Standalone Security & Confirmation Gate Verification Script.
 
 Proves the security, authentication, role isolation, and two-step confirmation gate
-claims against a LIVE running Janus (ElderSync) FastMCP v2 server over Streamable HTTP.
+claims against a LIVE running JANUS-ARC FastMCP v2 server over Streamable HTTP.
 
 Usage:
     python scripts/judge_check.py --url http://127.0.0.1:8000
@@ -97,7 +97,7 @@ def run_checks(base_url: str, timeout: float = 10.0) -> int:
     health_endpoint = f"{base_url}/health"
 
     print("=" * 110)
-    print(" JANUS (ELDERSYNC) -- SECURITY & CONFIRMATION GATE LIVE VERIFICATION")
+    print(" JANUS-ARC -- SECURITY & CONFIRMATION GATE LIVE VERIFICATION")
     print(f" Target Server Base URL : {base_url}")
     print(f" FastMCP /mcp Endpoint  : {mcp_endpoint}")
     print("=" * 110)
@@ -452,7 +452,7 @@ def run_checks(base_url: str, timeout: float = 10.0) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Janus (ElderSync) -- Standalone Security & Gate Claim Verification Script"
+        description="JANUS-ARC -- Standalone Security & Gate Claim Verification Script"
     )
     parser.add_argument(
         "--url",

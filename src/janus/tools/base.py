@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Base Pydantic Models.
+"""JANUS-ARC — Base Pydantic Models.
 
 Provides JanusBaseModel with backward-compatible dict subscripting and get() access,
 allowing FastMCP tools to return fully typed Pydantic models without breaking callers

@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Routine Logging & Summary Tool Schemas.
+"""JANUS-ARC — Routine Logging & Summary Tool Schemas.
 
 Defines Pydantic v2 data models for non-clinical daily routine logs, caregiver summaries,
 and ambient missed-routine alert notifications.

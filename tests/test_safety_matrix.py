@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Part 6 Safety Regression and Adversarial Tests.
+"""JANUS-ARC — Part 6 Safety Regression and Adversarial Tests.
 
 Comprehensive parameterized safety matrix covering:
 A. Permitted ordinary routines (hydration, meals, vitamins, activity, wellness).

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "janus-mcp"
 version = "0.1.0"
-description = "Janus (ElderSync) — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+"
+description = "JANUS-ARC — Non-Clinical Caregiver Synchronization FastMCP Server for Alexa+"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }

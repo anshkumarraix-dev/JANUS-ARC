@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Tamper-Evident Audit Ledger CLI & Verifier.
+"""JANUS-ARC — Tamper-Evident Audit Ledger CLI & Verifier.
 
 Provides cryptographic verification of the SHA-256 hash chain in SQLite audit_log.
 Formula:
@@ -104,7 +104,7 @@ def verify_audit_chain(db_path: Optional[str] = None) -> Tuple[bool, Optional[in
 
 
 def main(argv: Optional[list] = None) -> int:
-    parser = argparse.ArgumentParser(description="Janus (ElderSync) Audit Chain Verifier")
+    parser = argparse.ArgumentParser(description="JANUS-ARC Audit Chain Verifier")
     parser.add_argument("command", choices=["verify"], help="Audit command to execute")
     parser.add_argument("--db", default=None, help="Path to SQLite database file")
 

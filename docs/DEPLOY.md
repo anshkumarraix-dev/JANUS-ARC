@@ -1,6 +1,6 @@
-# Janus (ElderSync) — Deployment & Infrastructure Guide
+# JANUS-ARC — Deployment & Infrastructure Guide
 
-This guide details deployment procedures for **Janus (ElderSync)** across containerized Docker environments, Cloudflare tunnels, and third-party container hosts.
+This guide details deployment procedures for **JANUS-ARC** across containerized Docker environments, Cloudflare tunnels, and third-party container hosts.
 
 ---
 
@@ -166,9 +166,9 @@ git push origin main
 ### Step 2: Create Web Service on Render
 1. Navigate to the [Render Dashboard](https://dashboard.render.com).
 2. Click **New +** in the top navigation bar and select **Web Service**.
-3. Under *Connect a repository*, link your GitHub account and select your Janus repository (`JANUS-ARC` or `janus-eldersync`).
+3. Under *Connect a repository*, link your GitHub account and select your Janus repository (`JANUS-ARC` or `janus-JANUS-ARC`).
 4. Configure service parameters:
-   * **Name**: `janus-eldersync-mcp` (or any custom name; this sets your URL: `https://<name>.onrender.com`).
+   * **Name**: `janus-JANUS-ARC-mcp` (or any custom name; this sets your URL: `https://<name>.onrender.com`).
    * **Region**: Select the region closest to reviewers (e.g., `Oregon (US West)` or `Ohio (US East)`).
    * **Branch**: `main`.
    * **Runtime**: Select **Docker** (Render automatically detects the root [`Dockerfile`](../Dockerfile)).
@@ -198,7 +198,7 @@ When the container starts up for the first time, `storage.init_db()` executes au
 Even if the free container restarts or runs on ephemeral disk, the auto-seeding logic ensures reviewers can immediately invoke all 4 tools without manual database provisioning.
 
 ### Step 5: Updating `.agents/mcp_config.json`
-Once Render displays the green **Live** badge, copy your service URL (e.g., `https://janus-eldersync-mcp.onrender.com`).
+Once Render displays the green **Live** badge, copy your service URL (e.g., `https://janus-JANUS-ARC-mcp.onrender.com`).
 
 Update [`.agents/mcp_config.json`](../.agents/mcp_config.json) by replacing the placeholder with your live URL:
 ```json
@@ -208,7 +208,7 @@ Update [`.agents/mcp_config.json`](../.agents/mcp_config.json) by replacing the 
       "serverUrl": "http://127.0.0.1:8000/mcp"
     },
     "janus-deployed": {
-      "serverUrl": "https://janus-eldersync-mcp.onrender.com/mcp"
+      "serverUrl": "https://janus-JANUS-ARC-mcp.onrender.com/mcp"
     }
   }
 }
@@ -217,14 +217,14 @@ Update [`.agents/mcp_config.json`](../.agents/mcp_config.json) by replacing the 
 ### Step 6: Verifying with `judge_check.py`
 Verify the live public deployment by executing the standalone verification script against your Render HTTPS URL:
 ```bash
-python scripts/judge_check.py --url https://janus-eldersync-mcp.onrender.com
+python scripts/judge_check.py --url https://janus-JANUS-ARC-mcp.onrender.com
 ```
 
 All 9 assertions will run against your public cloud endpoint and output a green `PASS` table:
 ```
 ======================================================================
 JANUS MCP CONTRACT & CONFIRMATION GATE VERIFICATION
-Target: https://janus-eldersync-mcp.onrender.com
+Target: https://janus-JANUS-ARC-mcp.onrender.com
 ======================================================================
 [PASS]  1. Health check probe GET /health returns 200
 [PASS]  2.a No Authorization header -> HTTP 401 UNAUTHORIZED
@@ -256,7 +256,7 @@ Before presenting the public URL to reviewers and judges, verify the following p
 * **Mitigation / Pre-Warming Procedure**:
   Always pre-warm the container before conducting live demos or reviewer evaluation. Send a single GET request:
   ```bash
-  curl -I https://janus-eldersync-mcp.onrender.com/health
+  curl -I https://janus-JANUS-ARC-mcp.onrender.com/health
   ```
   Wait until the command returns `HTTP/2 200 OK`. Once awake, subsequent requests will execute with typical sub-30 ms response times.
 

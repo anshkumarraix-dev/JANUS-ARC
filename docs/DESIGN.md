@@ -1,7 +1,7 @@
-# ElderSync / Janus — System Architecture & Design (DESIGN.md)
+# JANUS-ARC — System Architecture & Design (DESIGN.md)
 
 ## 1. System Overview
-**Janus (ElderSync)** is a self-hosted, voice-first Model Context Protocol (MCP) server for Alexa+, built using Python 3.12, FastMCP v2, and FastAPI. It enables ambient, hands-free routine logging for seniors and seamless shift handoffs between family caregivers on Echo Show smart screens.
+**JANUS-ARC** is a self-hosted, voice-first Model Context Protocol (MCP) server for Alexa+, built using Python 3.12, FastMCP v2, and FastAPI. It enables ambient, hands-free routine logging for seniors and seamless shift handoffs between family caregivers on Echo Show smart screens.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — Two-Step Confirmation Gate Tests.
+"""JANUS-ARC — Two-Step Confirmation Gate Tests.
 
 Verifies the strict single-writer proposal gate invariants:
 1. No-preview commit rejected (unknown or missing transaction_id).

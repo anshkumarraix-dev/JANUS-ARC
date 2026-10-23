@@ -1,6 +1,6 @@
-# ElderSync / Janus — Project Learnings & Platform Constraints (LEARNINGS.md)
+# JANUS-ARC — Project Learnings & Platform Constraints (LEARNINGS.md)
 
-This append-only document captures critical technical discoveries, framework nuances, platform constraints, and operational workarounds encountered during the development of **Janus (ElderSync)** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
+This append-only document captures critical technical discoveries, framework nuances, platform constraints, and operational workarounds encountered during the development of **JANUS-ARC** for the *Build, Ship, Shape: Amazon Developer Hackathon (Alexa+ Track)*.
 
 ---
 

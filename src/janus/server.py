@@ -1,4 +1,4 @@
-"""Janus (ElderSync) — FastMCP v2 Server Entrypoint.
+"""JANUS-ARC — FastMCP v2 Server Entrypoint.
 
 Implements the official Model Context Protocol (MCP spec 2025-11-25) over
 Streamable HTTP (0.0.0.0:8000/mcp) with 4 core non-clinical tools, safety confirmation gates,

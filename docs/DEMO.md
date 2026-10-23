@@ -1,6 +1,6 @@
-# Janus (ElderSync) — Interactive Demonstration Script & Evaluation Guide (`docs/DEMO.md`)
+# JANUS-ARC — Interactive Demonstration Script & Evaluation Guide (`docs/DEMO.md`)
 
-This guide provides the exact step-by-step evaluation and video demonstration script for **Janus (ElderSync)** on the **Alexa+ Echo Show 8 & Off-Site Caregiver Split-Screen Simulator** (`simulator/index.html`).
+This guide provides the exact step-by-step evaluation and video demonstration script for **JANUS-ARC** on the **Alexa+ Echo Show 8 & Off-Site Caregiver Split-Screen Simulator** (`simulator/index.html`).
 
 ---
 

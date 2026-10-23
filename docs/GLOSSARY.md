@@ -1,6 +1,6 @@
-# ElderSync / Janus — Project Glossary (GLOSSARY.md)
+# JANUS-ARC — Project Glossary (GLOSSARY.md)
 
-This glossary defines the canonical domain terminology for **Janus (ElderSync)**, a self-hosted Model Context Protocol (MCP) server for Alexa+ built for the *Build, Ship, Shape: Amazon Developer Hackathon*. All developers, documentation, and AI coding agents must use these exact terms and definitions.
+This glossary defines the canonical domain terminology for **JANUS-ARC**, a self-hosted Model Context Protocol (MCP) server for Alexa+ built for the *Build, Ship, Shape: Amazon Developer Hackathon*. All developers, documentation, and AI coding agents must use these exact terms and definitions.
 
 ---
 

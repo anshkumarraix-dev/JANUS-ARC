@@ -1,4 +1,4 @@
-"""Tests for Janus (ElderSync) — Shared Non-Clinical Medical Safety Policy.
+"""Tests for JANUS-ARC — Shared Non-Clinical Medical Safety Policy.
 
 Validates deterministic safety policy classification, rule precedence,
 input sanitization, and MCP tool guard integration.

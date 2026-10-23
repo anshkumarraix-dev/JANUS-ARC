@@ -1,4 +1,4 @@
-# Dockerfile — Production-ready non-root container for Janus (ElderSync)
+# Dockerfile — Production-ready non-root container for JANUS-ARC
 FROM python:3.12-slim
 
 # Prevent Python from writing bytecode and enable unbuffered output
