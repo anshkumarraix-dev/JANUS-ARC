@@ -49,6 +49,7 @@ class ConfirmationGate:
     ) -> Dict[str, Any]:
         """Generate a read-only proposal preview (0 database mutations to logs or handoffs)."""
         # Medical Safety Policy Check before proposal creation
+        audit_role = "caregiver" if "caregiver" in actor else "senior"
         if action_type == "routine_log":
             cat = payload.get("category") or payload.get("routine_type")
             details = payload.get("details") or payload.get("notes") or ""
@@ -56,17 +57,53 @@ class ConfirmationGate:
             if details:
                 safety_res = assess_safety(details, category=cat)
                 if safety_res.outcome == SafetyOutcome.EMERGENCY_GUIDANCE:
+                    storage.record_audit_entry(
+                        actor=actor,
+                        role=audit_role,
+                        tool="gate.propose",
+                        senior_id=senior_id,
+                        transaction_id=None,
+                        outcome=f"BLOCKED_{safety_res.outcome.value}",
+                        reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                        mutation_committed=False,
+                        db_path=self.db_path,
+                        now=now,
+                    )
                     raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
             if not cat:
                 raise InvalidCategoryError("empty")
             payload["category"] = validate_category(cat)
             safety_res = assess_safety(details, category=payload["category"])
             if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+                storage.record_audit_entry(
+                    actor=actor,
+                    role=audit_role,
+                    tool="gate.propose",
+                    senior_id=senior_id,
+                    transaction_id=None,
+                    outcome=f"BLOCKED_{safety_res.outcome.value}",
+                    reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                    mutation_committed=False,
+                    db_path=self.db_path,
+                    now=now,
+                )
                 raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
         elif action_type == "shift_handoff":
             notes = payload.get("handoff_notes") or ""
             safety_res = assess_safety(notes, category="wellness")
             if safety_res.outcome != SafetyOutcome.ROUTINE_ALLOWED:
+                storage.record_audit_entry(
+                    actor=actor,
+                    role=audit_role,
+                    tool="gate.propose",
+                    senior_id=senior_id,
+                    transaction_id=None,
+                    outcome=f"BLOCKED_{safety_res.outcome.value}",
+                    reason_code=safety_res.matched_rule or safety_res.outcome.value,
+                    mutation_committed=False,
+                    db_path=self.db_path,
+                    now=now,
+                )
                 raise SafetyBlockedError(safety_res.outcome.value, safety_res.guidance, safety_res.matched_rule)
 
         return create_proposal(
@@ -98,6 +135,18 @@ class ConfirmationGate:
     ) -> Dict[str, Any]:
         """Commit a live proposal atomically. Returns COMMITTED or ALREADY_COMMITTED."""
         if not transaction_id:
+            storage.record_audit_entry(
+                actor="anonymous",
+                role="unknown",
+                tool="gate.commit",
+                senior_id=None,
+                transaction_id=None,
+                outcome="CONFIRMATION_FAILED",
+                reason_code=ErrorCode.MISSING_TRANSACTION_ID,
+                mutation_committed=False,
+                db_path=self.db_path,
+                now=now,
+            )
             return {
                 "status": "error",
                 "error_code": ErrorCode.MISSING_TRANSACTION_ID,

@@ -20,6 +20,7 @@ class ErrorCode:
     INVALID_ARGUMENTS = "INVALID_ARGUMENTS"
     FORBIDDEN = "FORBIDDEN"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    AUDIT_FAILURE = "AUDIT_FAILURE"
     # Shared Medical Safety Policy Outcomes
     EMERGENCY_GUIDANCE = "EMERGENCY_GUIDANCE"
     MEDICAL_ACTION_BLOCKED = "MEDICAL_ACTION_BLOCKED"
@@ -52,6 +53,9 @@ HUMAN_SAFE_MESSAGES = {
     ),
     ErrorCode.INTERNAL_ERROR: (
         "A server error occurred while processing the request. Please try again."
+    ),
+    ErrorCode.AUDIT_FAILURE: (
+        "Cryptographic audit logging failed. Operation cannot proceed without audit integrity."
     ),
     ErrorCode.EMERGENCY_GUIDANCE: (
         "Immediate emergency guidance: If you or someone nearby is experiencing a medical emergency, "
@@ -135,3 +139,13 @@ class SafetyBlockedError(JanusError):
         super().__init__(code=outcome, message=message, details=rule)
         self.outcome = outcome
         self.rule = rule
+
+
+class AuditWriteError(JanusError):
+    """Raised when writing to the tamper-evident cryptographic audit log fails."""
+
+    def __init__(self, message: str = "Cryptographic audit logging failed. Operation cannot proceed without audit integrity.") -> None:
+        super().__init__(
+            code=ErrorCode.AUDIT_FAILURE,
+            message=message,
+        )

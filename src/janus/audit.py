@@ -32,7 +32,7 @@ def verify_audit_chain(db_path: Optional[str] = None) -> Tuple[bool, Optional[in
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, ts, actor, role, tool, senior_id, transaction_id, outcome, prev_hash, hash
+            SELECT *
             FROM audit_log
             ORDER BY id ASC
             """
@@ -56,11 +56,14 @@ def verify_audit_chain(db_path: Optional[str] = None) -> Tuple[bool, Optional[in
                     f"Broken chain at row {row_id}: prev_hash mismatch. Expected '{expected_prev_hash}', got '{stored_prev_hash}'."
                 )
 
-            # 2. Recompute hash from canonical JSON
+            # 2. Recompute hash from canonical JSON (v2 schema)
+            row_keys = row.keys()
             row_data = {
                 "actor": row["actor"],
                 "id": row_id,
+                "mutation_committed": bool(row["mutation_committed"]) if "mutation_committed" in row_keys else False,
                 "outcome": row["outcome"],
+                "reason_code": row["reason_code"] if "reason_code" in row_keys else None,
                 "role": row["role"],
                 "senior_id": row["senior_id"],
                 "tool": row["tool"],
@@ -69,7 +72,23 @@ def verify_audit_chain(db_path: Optional[str] = None) -> Tuple[bool, Optional[in
             }
             computed_hash = storage.compute_audit_hash(stored_prev_hash, row_data)
 
-            # 3. Check hash match
+            # 3. Backward compatibility check for legacy v1 rows created before schema extension
+            if stored_hash != computed_hash:
+                legacy_row_data = {
+                    "actor": row["actor"],
+                    "id": row_id,
+                    "outcome": row["outcome"],
+                    "role": row["role"],
+                    "senior_id": row["senior_id"],
+                    "tool": row["tool"],
+                    "transaction_id": row["transaction_id"],
+                    "ts": row["ts"],
+                }
+                legacy_hash = storage.compute_audit_hash(stored_prev_hash, legacy_row_data)
+                if stored_hash == legacy_hash:
+                    computed_hash = legacy_hash
+
+            # 4. Check hash match
             if stored_hash != computed_hash:
                 return (
                     False,

@@ -491,7 +491,7 @@ async def test_blocked_request_cannot_commit_event(isolated_db):
                 INSERT INTO proposals (
                     transaction_id, senior_id, action_type, payload_json,
                     actor, created_at, expires_at, status
-                ) VALUES (?, ?, 'routine_log', ?, 'test_actor', '2026-10-22T00:00:00Z', '2026-10-22T23:59:59Z', 'pending')
+                ) VALUES (?, ?, 'routine_log', ?, 'test_actor', '2026-10-22T00:00:00Z', '2099-12-31T23:59:59Z', 'pending')
                 """,
                 (tx_id, "margaret_01", '{"category": "hydration", "details": "crushing chest pain and heart attack"}'),
             )
