@@ -109,7 +109,7 @@
 
     body {
       background-color: var(--bg-canvas);
-      background-image: 
+      background-image:
         radial-gradient(at 0% 0%, rgba(98, 220, 200, 0.05) 0px, transparent 40%),
         radial-gradient(at 100% 100%, rgba(135, 184, 255, 0.04) 0px, transparent 40%);
       font-family: var(--font-stack);
@@ -1514,7 +1514,7 @@
     .debug-body.open {
       display: block;
     }
-  
+
     /* =========================================================================
        APP SHELL & TOP-LEVEL NAVIGATION
        ========================================================================= */
@@ -3829,11 +3829,11 @@
             <button type="button" class="mic-btn" id="mic-btn" onclick="toggleMicrophone()" title="Toggle Web Speech recognition" aria-label="Toggle voice microphone input">
               🎤
             </button>
-            <input 
-              type="text" 
-              class="utterance-input" 
-              id="utterance-input" 
-              placeholder="Speak or type: 'I drank a glass of water', 'Hand off shift', 'yes', 'no'..." 
+            <input
+              type="text"
+              class="utterance-input"
+              id="utterance-input"
+              placeholder="Speak or type: 'I drank a glass of water', 'Hand off shift', 'yes', 'no'..."
               autocomplete="off"
               aria-label="Alexa speech turn command input"
             />
@@ -4133,7 +4133,7 @@
         }
       });
       // Zero network requests dispatched, pendingTx preserved across all switches!
-    
+
       updatePendingProposalBanner();
     }
     // =========================================================================
@@ -4607,12 +4607,12 @@
       const name = getSetting('senior_name');
       document.getElementById('senior-display-name').textContent = name;
       document.getElementById('cg-senior-header').textContent = `${name} — Care Ledger`;
-      
+
       const initials = name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || 'SR';
       document.getElementById('senior-avatar').textContent = initials;
       const cgAvatar = document.getElementById('cg-senior-avatar');
       if (cgAvatar) cgAvatar.textContent = initials;
-      
+
       updateEndpointHost();
 
       // Sync role buttons if matching
@@ -4885,7 +4885,7 @@
                norm.includes('breakfast') || norm.includes('lunch') || norm.includes('dinner') || norm.includes('meal') || norm.includes('oatmeal') || norm.includes('ate') ||
                norm.includes('vitamin') || norm.includes('supplement') || norm.includes('pill') ||
                norm.includes('walk') || norm.includes('garden') || norm.includes('porch') || norm.includes('exercise') || norm.includes('activity')) {
-        
+
         let cat = 'wellness';
         if (norm.includes('water') || norm.includes('drank') || norm.includes('hydration') || norm.includes('glass')) {
           cat = 'hydration';
@@ -5500,18 +5500,15 @@
         }
         return;
       }
-
-<<<<<<< HEAD
-            return await callMCPTool(routing.tool, routing.args, {
+      await callMCPTool(routing.tool, routing.args, {
         speak: true,
-      });
->>>>>>> e821bc16485fa611c777d91b10466fd51921f6ef
         traceContext: {
           utterance: `"${rawText}"`,
           ruleName: routing.ruleName
         }
       });
     }
+
 
     // =========================================================================
     // CAREGIVER DASHBOARD POLLING & VISUAL SYNCHRONIZATION
@@ -5583,7 +5580,7 @@
       // Update Metrics
       document.getElementById('metric-hydration').textContent = stats.hydration_entries || 0;
       document.getElementById('metric-meals').textContent = stats.meals_count || 0;
-      
+
       const vitElem = document.getElementById('metric-vitamins');
       if (stats.vitamins_completed) {
         vitElem.textContent = 'Done';
@@ -5847,7 +5844,7 @@
     // =========================================================================
     function logDebug(req, res, ms, headers) {
       const elem = document.getElementById('debug-drawer-body');
-      elem.textContent = 
+      elem.textContent =
         `[${new Date().toLocaleTimeString()}] HTTP POST (${ms} ms)\n` +
         `REQUEST HEADERS:\n${JSON.stringify(headers || {}, null, 2)}\n\n` +
         `REQUEST RPC:\n${JSON.stringify(req, null, 2)}\n\n` +
@@ -5877,6 +5874,7 @@
         pollCaregiverSummary();
       }, 3000);
     });
+
   </script>
 </body>
 </html>
